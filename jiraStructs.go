@@ -31,7 +31,7 @@ type JiraItem struct {
 	Description     string       `xml:"description"`
 	Key             string       `xml:"key"`
 	Labels          []string     `xml:"labels>label"`
-	Project         string       `xml:"project"`
+	Project         JiraProject  `xml:"project"`
 	Resolution      string       `xml:"resolution"`
 	Reporter        JiraReporter `xml:"reporter"`
 	Status          string       `xml:"status"`
@@ -60,17 +60,44 @@ type JiraComment struct {
 	ID              string `xml:"id,attr"`
 }
 
-func GetUserInfo(userMaps []userMap, jiraUsername string) (CHProjectID int, CHID string) {
+type JiraProject struct {
+	Key string `xml:"key,attr"`
+}
+
+func GetUserInfo(userMaps []userMap, jiraUsername string) (CHID string) {
+
+	defaultUser := ""
+
 	for _, u := range userMaps {
 		if u.JiraUsername == jiraUsername {
-			return u.CHProjectID, u.CHID
+			return u.CHID
+		}
+		if u.Default == true {
+			defaultUser = u.CHID
 		}
 	}
-	return 0, ""
+	if defaultUser != "" {
+		fmt.Printf("Unknown user %s. Will use default user: %s\n\n", jiraUsername, defaultUser)
+	} else {
+		fmt.Printf("Unknown user %s. No default user defined in userMap. This story will not be created\n\n", jiraUsername)
+	}
+
+	return defaultUser
+}
+
+func GetProjectInfo(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int) {
+
+	for _, u := range projectMaps {
+		// fmt.Printf("JiraProjectKey: %s | CHProjectID: %d\n\n", u.JiraProjectKey, u.CHProjectID)
+		if u.JiraProjectKey == jiraProjectKey {
+			return u.CHProjectID
+		}
+	}
+	return 0
 }
 
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *JiraExport) GetDataForClubhouse(userMaps []userMap) ClubHouseData {
+func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) ClubHouseData {
 	epics := []JiraItem{}
 	tasks := []JiraItem{}
 	stories := []JiraItem{}
@@ -103,7 +130,7 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap) ClubHouseData {
 	}
 
 	for _, item := range stories {
-		chStories = append(chStories, item.CreateStory(userMaps))
+		chStories = append(chStories, item.CreateStory(userMaps, projectMaps))
 	}
 
 	// storyMap is used to link the JiraItem's key to its index in the chStories slice. This is then used to assign subtasks properly
@@ -112,19 +139,9 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap) ClubHouseData {
 		storyMap[item.key] = i
 	}
 
-	// // epicMap
-	// epicMap := make(map[string]int)
-	// for i, item := range chEpics {
-	// 	epicMap[item.Name] = i
-	// }
-
 	for _, task := range chTasks {
 		chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
 	}
-
-	// for _, story := range chStories {
-	// 	chStories[storyMap[story.epicLink]].EpicID = chEpics[epicMap[story.epicLink]].id
-	// }
 
 	return ClubHouseData{Epics: chEpics, Stories: chStories}
 }
@@ -142,7 +159,7 @@ func (item *JiraItem) CreateTask() ClubHouseCreateTask {
 }
 
 // CreateStory returns a ClubHouseCreateStory from the JiraItem
-func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
+func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) ClubHouseCreateStory {
 	// fmt.Println("assignee: ", item.Assignee, "reporter: ", item.Reporter)
 	// return ClubHouseCreateStory{}
 
@@ -165,7 +182,7 @@ func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
 	}
 
 	// Overwrite supplied Project ID
-	projectID := MapProject(userMaps, item.Assignee.Username)
+	projectID := MapProject(projectMaps, item.Project.Key)
 	// projectID, ownerID := GetUserInfo(userMaps, item.Assignee.Username)
 
 	// Map JIRA assignee to Clubhouse owner(s)
@@ -227,11 +244,6 @@ func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
 
 	requestor := MapUser(userMaps, item.Reporter.Username)
 	// _, requestor := GetUserInfo(userMaps, item.Reporter.Username)
-	if requestor == "" {
-		// map to me if requestor not in Clubhouse
-		requestor = MapUser(userMaps, "ted")
-		// _, requestor = GetUserInfo(userMaps, "ted")
-	}
 
 	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint())
 
@@ -253,7 +265,7 @@ func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
 }
 
 func MapUser(userMaps []userMap, jiraUserName string) string {
-	_, chUserID := GetUserInfo(userMaps, jiraUserName)
+	chUserID := GetUserInfo(userMaps, jiraUserName)
 
 	if chUserID == "" {
 		fmt.Println("[MapUser] JIRA user not found: ", jiraUserName)
@@ -263,11 +275,11 @@ func MapUser(userMaps []userMap, jiraUserName string) string {
 	return chUserID
 }
 
-func MapProject(userMaps []userMap, jiraUserName string) int {
-	projectID, _ := GetUserInfo(userMaps, jiraUserName)
+func MapProject(projectMaps []projectMap, jiraProjectKey string) int {
+	projectID := GetProjectInfo(projectMaps, jiraProjectKey)
 
 	if projectID == 0 {
-		fmt.Println("[MapProject] JIRA user not found: ", jiraUserName)
+		fmt.Println("[MapProject] JIRA project not found: ", jiraProjectKey)
 		return 299
 	}
 
@@ -281,11 +293,6 @@ func (comment *JiraComment) CreateComment(userMaps []userMap) ClubHouseCreateCom
 		commentText = "(empty)"
 	}
 	author := MapUser(userMaps, comment.Author)
-	if author == "" {
-		// since we MUST have a comment author, make it me and prepend the actual username to the comment body
-		author = MapUser(userMaps, "mama01")
-		commentText = comment.Author + ": " + commentText
-	}
 
 	return ClubHouseCreateComment{
 		Text:      commentText,
@@ -352,7 +359,7 @@ func (item *JiraItem) GetSprint() string {
 			if startPoint == -1 {
 				startPoint = 0
 			}
-			sprintAfterNoise := sprint[startPoint:len(sprint)] + " bunt"
+			sprintAfterNoise := sprint[startPoint:len(sprint)] + " " + item.Project.Key
 			sprintAsTag := strings.ToLower(strings.Replace(sprintAfterNoise, " ", "_", -1))
 
 			return sprintAsTag

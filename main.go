@@ -14,8 +14,13 @@ import (
 
 type userMap struct {
 	JiraUsername string
-	CHProjectID  int
 	CHID         string
+	Default      bool
+}
+
+type projectMap struct {
+	JiraProjectKey string
+	CHProjectID    int
 }
 
 func main() {
@@ -38,6 +43,10 @@ func main() {
 					Usage: "The JSON file containing user mappings",
 				},
 				cli.StringFlag{
+					Name:  "project, p",
+					Usage: "The JSON file containing project mappings",
+				},
+				cli.StringFlag{
 					Name:  "out, o",
 					Usage: "The destination file",
 				},
@@ -46,6 +55,7 @@ func main() {
 				jiraFile := c.String("in")
 				exportFile := c.String("out")
 				mapFile := c.String("map")
+				projectMapFile := c.String("project")
 
 				if jiraFile == "" {
 					fmt.Println("An input file must be specified.")
@@ -62,13 +72,24 @@ func main() {
 					return nil
 				}
 
+				if projectMapFile == "" {
+					fmt.Println("A project map JSON file must be specified.")
+					return nil
+				}
+
 				userMaps, err := GetUserMap(mapFile)
 				if err != nil {
 					fmt.Println(err)
 					return err
 				}
 
-				err = ExportToJSON(jiraFile, userMaps, exportFile)
+				projectMaps, err := GetProjectMap(projectMapFile)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				err = ExportToJSON(jiraFile, userMaps, projectMaps, exportFile)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -89,6 +110,10 @@ func main() {
 					Usage: "The JSON file containing user mappings",
 				},
 				cli.StringFlag{
+					Name:  "project, p",
+					Usage: "The JSON file containing project mappings",
+				},
+				cli.StringFlag{
 					Name:  "token, t",
 					Usage: "Your API token",
 				},
@@ -102,6 +127,7 @@ func main() {
 				jiraFile := c.String("in")
 				token := c.String("token")
 				mapFile := c.String("map")
+				projectMapFile := c.String("project")
 				testMode := c.Bool("test")
 
 				if jiraFile == "" {
@@ -125,7 +151,13 @@ func main() {
 					return err
 				}
 
-				err = UploadToClubhouse(jiraFile, userMaps, token, testMode)
+				projectMaps, err := GetProjectMap(projectMapFile)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				err = UploadToClubhouse(jiraFile, userMaps, projectMaps, token, testMode)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -159,13 +191,35 @@ func GetUserMap(mapFile string) ([]userMap, error) {
 	return userMaps, nil
 }
 
+func GetProjectMap(projectMapFile string) ([]projectMap, error) {
+	jsonFile, err := os.Open(projectMapFile)
+	if err != nil {
+		return []projectMap{}, err
+	}
+
+	defer jsonFile.Close()
+	JSONData, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return []projectMap{}, err
+	}
+
+	// userMaps := []userMap
+	var projectMaps []projectMap
+	err = json.Unmarshal(JSONData, &projectMaps)
+	if err != nil {
+		return []projectMap{}, err
+	}
+
+	return projectMaps, nil
+}
+
 // ExportToJSON will import the XML and then export the data to the file specified.
-func ExportToJSON(jiraFile string, userMaps []userMap, exportFile string) error {
+func ExportToJSON(jiraFile string, userMaps []userMap, projectMaps []projectMap, exportFile string) error {
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(export.GetDataForClubhouse(userMaps))
+	data, err := json.Marshal(export.GetDataForClubhouse(userMaps, projectMaps))
 	if err != nil {
 		return err
 	}
@@ -177,12 +231,12 @@ func ExportToJSON(jiraFile string, userMaps []userMap, exportFile string) error 
 }
 
 // UploadToClubhouse will import the XML, and upload it to Clubhouse
-func UploadToClubhouse(jiraFile string, userMaps []userMap, token string, testMode bool) error {
+func UploadToClubhouse(jiraFile string, userMaps []userMap, projectMaps []projectMap, token string, testMode bool) error {
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
 		return err
 	}
-	data := export.GetDataForClubhouse(userMaps)
+	data := export.GetDataForClubhouse(userMaps, projectMaps)
 	fmt.Printf("Found %d epics and %d stories.\n\n", len(data.Epics), len(data.Stories))
 
 	if !testMode {
