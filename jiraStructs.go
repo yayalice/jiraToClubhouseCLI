@@ -283,7 +283,7 @@ func (comment *JiraComment) CreateComment(userMaps []userMap) ClubHouseCreateCom
 	author := MapUser(userMaps, comment.Author)
 	if author == "" {
 		// since we MUST have a comment author, make it me and prepend the actual username to the comment body
-		author = MapUser(userMaps, "ted")
+		author = MapUser(userMaps, "mama01")
 		commentText = comment.Author + ": " + commentText
 	}
 
@@ -308,7 +308,7 @@ func (item *JiraItem) GetEpicLink() string {
 func (item *JiraItem) GetAcceptanceCriteria() string {
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Acceptance Criteria" {
-			header := "<br># Acceptance Criteria<br>"
+			header := "<br>## Acceptance Criteria<br>"
 			return header + cf.FieldVales[0]
 		}
 	}
@@ -330,11 +330,8 @@ func (item *JiraItem) GetEstimate() int64 {
 func ParseFloatStringToInt(sFloat string) int64 {
 	f, err := strconv.ParseFloat(sFloat, 64)
 	if err == nil {
-		// fmt.Printf("ParseFloat result: %f", f)
 		i := int64(f + 0.5)
-		// fmt.Printf("int with roundup: %d", i)
 		return i
-
 	}
 	return 0
 }
@@ -355,7 +352,7 @@ func (item *JiraItem) GetSprint() string {
 			if startPoint == -1 {
 				startPoint = 0
 			}
-			sprintAfterNoise := sprint[startPoint:len(sprint)] + " Sisu"
+			sprintAfterNoise := sprint[startPoint:len(sprint)] + " bunt"
 			sprintAsTag := strings.ToLower(strings.Replace(sprintAfterNoise, " ", "_", -1))
 
 			return sprintAsTag
