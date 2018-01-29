@@ -112,16 +112,28 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap) ClubHouseData {
 		storyMap[item.key] = i
 	}
 
+	// // epicMap
+	// epicMap := make(map[string]int)
+	// for i, item := range chEpics {
+	// 	epicMap[item.Name] = i
+	// }
+
 	for _, task := range chTasks {
 		chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
 	}
+
+	// for _, story := range chStories {
+	// 	chStories[storyMap[story.epicLink]].EpicID = chEpics[epicMap[story.epicLink]].id
+	// }
 
 	return ClubHouseData{Epics: chEpics, Stories: chStories}
 }
 
 // CreateEpic returns a ClubHouseCreateEpic from the JiraItem
 func (item *JiraItem) CreateEpic() ClubHouseCreateEpic {
-	return ClubHouseCreateEpic{Description: sanitize.HTML(item.Description), Name: sanitize.HTML(item.Summary), key: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
+	fmt.Printf("Epic Name: %s | Description: %s | Summary: %s\n\n", item.GetEpicName(), item.Description, item.Summary)
+
+	return ClubHouseCreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), key: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
 }
 
 // CreateTask returns a task if the item is a Jira Sub-task
@@ -351,6 +363,17 @@ func (item *JiraItem) GetSprint() string {
 	}
 	return ""
 
+}
+
+// GetEpicName returns the name of an epic stored in custom fields
+func (item *JiraItem) GetEpicName() string {
+	for _, cf := range item.CustomFields {
+		if cf.FieldName == "Epic Name" {
+			epicName := cf.FieldVales[0]
+			return epicName
+		}
+	}
+	return ""
 }
 
 // GetClubhouseType determines type based on if the Jira item is a bug or not.

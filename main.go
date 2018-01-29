@@ -13,9 +13,9 @@ import (
 )
 
 type userMap struct {
-	JiraUsername	string
-	CHProjectID	int
-	CHID		string
+	JiraUsername string
+	CHProjectID  int
+	CHID         string
 }
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 					Usage: "The Jira XML file you want to read in.",
 				},
 				cli.StringFlag{
-					Name: "map, m",
+					Name:  "map, m",
 					Usage: "The JSON file containing user mappings",
 				},
 				cli.StringFlag{
@@ -85,7 +85,7 @@ func main() {
 					Usage: "The Jira XML file you want to read in.",
 				},
 				cli.StringFlag{
-					Name: "map, m",
+					Name:  "map, m",
 					Usage: "The JSON file containing user mappings",
 				},
 				cli.StringFlag{
@@ -93,9 +93,9 @@ func main() {
 					Usage: "Your API token",
 				},
 				cli.BoolFlag{
-					Name:  "test, T",
+					Name:   "test, T",
 					Hidden: false,
-					Usage: "Test mode: Does not execute remote requests",
+					Usage:  "Test mode: Does not execute remote requests",
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -137,7 +137,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func GetUserMap(mapFile string) ([]userMap, error){
+func GetUserMap(mapFile string) ([]userMap, error) {
 	jsonFile, err := os.Open(mapFile)
 	if err != nil {
 		return []userMap{}, err
@@ -184,8 +184,8 @@ func UploadToClubhouse(jiraFile string, userMaps []userMap, token string, testMo
 	}
 	data := export.GetDataForClubhouse(userMaps)
 	fmt.Printf("Found %d epics and %d stories.\n\n", len(data.Epics), len(data.Stories))
-	
-	if !testMode{
+
+	if !testMode {
 		fmt.Println("Sending data to Clubhouse...")
 		err = SendData(token, data)
 		if err != nil {
@@ -221,7 +221,7 @@ func SendData(token string, data ClubHouseData) error {
 		body, _ := ioutil.ReadAll(resp.Body)
 		newEpic := ClubHouseEpic{}
 		json.Unmarshal(body, &newEpic)
-		epicMap[epic.key] = newEpic.ID
+		epicMap[epic.Name] = newEpic.ID
 	}
 
 	for _, story := range data.Stories {
