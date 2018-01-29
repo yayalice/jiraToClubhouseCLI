@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,28 +17,28 @@ type JiraExport struct {
 }
 
 type JiraAssignee struct {
-	Username		string	`xml:"username,attr"`
+	Username string `xml:"username,attr"`
 }
 
 type JiraReporter struct {
-	Username		string	`xml:"username,attr"`
+	Username string `xml:"username,attr"`
 }
 
 // JiraItem is the struct for a basic item imported from the XML
 type JiraItem struct {
-	Assignee        JiraAssignee   `xml:"assignee"`
-	CreatedAtString string   		`xml:"created"`
-	Description     string   		`xml:"description"`
-	Key             string   		`xml:"key"`
-	Labels          []string 		`xml:"labels>label"`
-	Project         string   		`xml:"project"`
-	Resolution      string   		`xml:"resolution"`
-	Reporter        JiraReporter  	`xml:"reporter"`
-	Status          string   		`xml:"status"`
-	Summary         string   		`xml:"summary"`
-	Title           string   		`xml:"title"`
-	Type            string   		`xml:"type"`
-	Parent          string   		`xml:"parent"`
+	Assignee        JiraAssignee `xml:"assignee"`
+	CreatedAtString string       `xml:"created"`
+	Description     string       `xml:"description"`
+	Key             string       `xml:"key"`
+	Labels          []string     `xml:"labels>label"`
+	Project         string       `xml:"project"`
+	Resolution      string       `xml:"resolution"`
+	Reporter        JiraReporter `xml:"reporter"`
+	Status          string       `xml:"status"`
+	Summary         string       `xml:"summary"`
+	Title           string       `xml:"title"`
+	Type            string       `xml:"type"`
+	Parent          string       `xml:"parent"`
 
 	Comments     []JiraComment     `xml:"comments>comment"`
 	CustomFields []JiraCustomField `xml:"customfields>customfield"`
@@ -145,6 +146,12 @@ func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
 	// Adding special label that indicates that it was imported from JIRA
 	labels = append(labels, ClubHouseCreateLabel{Name: "JIRA"})
 
+	// Adding Sprint as label
+	sprintLabel := item.GetSprint()
+	if sprintLabel != "" {
+		labels = append(labels, ClubHouseCreateLabel{Name: sprintLabel})
+	}
+
 	// Overwrite supplied Project ID
 	projectID := MapProject(userMaps, item.Assignee.Username)
 	// projectID, ownerID := GetUserInfo(userMaps, item.Assignee.Username)
@@ -165,54 +172,71 @@ func (item *JiraItem) CreateStory(userMaps []userMap) ClubHouseCreateStory {
 	// cases break automatically, no fallthrough by default
 	var state int64 = 500000014
 	switch item.Status {
-	    case "Ready for Test":
-	        // ready for test
-	        state = 500000010
-	    case "Task In Progress":
-	        // in progress
-	        state = 500000015
-	    case "Selected for Review/Development":
-	    	// selected
-	    	state = 500000011
-	    case "Task backlog":
-	    	// backlog
-	        state = 500000014
-	    case "Done":
-	    	// Completed
-	    	state = 500000012
-	    case "Verified":
-	    	// Completed
-	    	state = 500000012
-	    case "Closed":
-	    	state = 500000021
-	    default:
-	    	// backlog
-	        state = 500000014
-    }
+	case "Open":
+		// Open
+		state = 500000003
+	case "Done":
+		// Done
+		state = 500000002
+	case "In Development":
+		// In Development
+		state = 500000004
+	case "Waiting for Code Review":
+		// Ready for Review
+		state = 500000005
+	case "In Code Review":
+		// In Review
+		state = 500000018
+	case "Waiting for UX-Interaction Design Review":
+		// Ready for Review
+		state = 500000005
+	case "In UX-Interaction Design Review":
+		// In Review
+		state = 500000018
+	case "Waiting for UX-Design Review":
+		// Ready for Review
+		state = 500000005
+	case "In UX-Design Review":
+		// In Review
+		state = 500000018
+	case "Waiting for QA":
+		// Ready for Test
+		state = 500000017
+	case "In QA":
+		// In Test
+		state = 500000019
+	case "In QA Review":
+		// In Test
+		state = 500000019
+	default:
+		// Open
+		state = 500000003
+	}
 
-    requestor := MapUser(userMaps, item.Reporter.Username)
-    // _, requestor := GetUserInfo(userMaps, item.Reporter.Username)
-    if requestor == "" {
-    	// map to me if requestor not in Clubhouse
-    	requestor = MapUser(userMaps, "ted")
-    	// _, requestor = GetUserInfo(userMaps, "ted")
-    }
+	requestor := MapUser(userMaps, item.Reporter.Username)
+	// _, requestor := GetUserInfo(userMaps, item.Reporter.Username)
+	if requestor == "" {
+		// map to me if requestor not in Clubhouse
+		requestor = MapUser(userMaps, "ted")
+		// _, requestor = GetUserInfo(userMaps, "ted")
+	}
 
-    fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status)
+	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint())
 
 	return ClubHouseCreateStory{
-		Comments:    	comments,
-		CreatedAt:   	ParseJiraTimeStamp(item.CreatedAtString),
-		Description: 	sanitize.HTML(item.Description),
-		Labels:      	labels,
-		Name:        	sanitize.HTML(item.Summary),
-		ProjectID:   	int64(projectID),
-		StoryType:   	item.GetClubhouseType(),
-		key:         	item.Key,
-		epicLink:    	item.GetEpicLink(),
-		WorkflowState:	state,
-		OwnerIDs:		owners,
-		RequestedBy:	requestor,
+		Comments:      comments,
+		CreatedAt:     ParseJiraTimeStamp(item.CreatedAtString),
+		Description:   item.GetDescription(),
+		Labels:        labels,
+		Name:          sanitize.HTML(item.Summary),
+		ProjectID:     int64(projectID),
+		StoryType:     item.GetClubhouseType(),
+		key:           item.Key,
+		epicLink:      item.GetEpicLink(),
+		WorkflowState: state,
+		OwnerIDs:      owners,
+		RequestedBy:   requestor,
+		Estimate:      item.GetEstimate(),
 	}
 }
 
@@ -221,7 +245,7 @@ func MapUser(userMaps []userMap, jiraUserName string) string {
 
 	if chUserID == "" {
 		fmt.Println("[MapUser] JIRA user not found: ", jiraUserName)
-    	return ""
+		return ""
 	}
 
 	return chUserID
@@ -232,12 +256,11 @@ func MapProject(userMaps []userMap, jiraUserName string) int {
 
 	if projectID == 0 {
 		fmt.Println("[MapProject] JIRA user not found: ", jiraUserName)
-    	return 299
+		return 299
 	}
 
 	return projectID
 }
-
 
 // CreateComment takes the JiraItem's comment data and returns a ClubHouseCreateComment
 func (comment *JiraComment) CreateComment(userMaps []userMap) ClubHouseCreateComment {
@@ -253,9 +276,9 @@ func (comment *JiraComment) CreateComment(userMaps []userMap) ClubHouseCreateCom
 	}
 
 	return ClubHouseCreateComment{
-		Text:		commentText,
-		CreatedAt:	ParseJiraTimeStamp(comment.CreatedAtString),
-		Author: 	author,
+		Text:      commentText,
+		CreatedAt: ParseJiraTimeStamp(comment.CreatedAtString),
+		Author:    author,
 	}
 }
 
@@ -267,6 +290,67 @@ func (item *JiraItem) GetEpicLink() string {
 		}
 	}
 	return ""
+}
+
+// GetAcceptanceCriteria returns the acceptance criteria
+func (item *JiraItem) GetAcceptanceCriteria() string {
+	for _, cf := range item.CustomFields {
+		if cf.FieldName == "Acceptance Criteria" {
+			header := "<br># Acceptance Criteria<br>"
+			return header + cf.FieldVales[0]
+		}
+	}
+	return ""
+}
+
+// GetEstimate returns the Story Points
+func (item *JiraItem) GetEstimate() int64 {
+	for _, cf := range item.CustomFields {
+		if cf.FieldName == "Story Points" {
+			storyPoint := cf.FieldVales[0]
+			return ParseFloatStringToInt(storyPoint)
+		}
+	}
+	return 0
+}
+
+// ParseFloatStringToInt parses a string containing a float into an uprounded int
+func ParseFloatStringToInt(sFloat string) int64 {
+	f, err := strconv.ParseFloat(sFloat, 64)
+	if err == nil {
+		// fmt.Printf("ParseFloat result: %f", f)
+		i := int64(f + 0.5)
+		// fmt.Printf("int with roundup: %d", i)
+		return i
+
+	}
+	return 0
+}
+
+// GetDescription returns a concatenation of description and acceptance criteria
+func (item *JiraItem) GetDescription() string {
+	return sanitize.HTML(item.Description + item.GetAcceptanceCriteria())
+}
+
+// GetSprint returns a string to be used as tag for srint grouping
+func (item *JiraItem) GetSprint() string {
+
+	for _, cf := range item.CustomFields {
+		if cf.FieldName == "Sprint" {
+			sprint := cf.FieldVales[0]
+
+			startPoint := strings.Index(sprint, "Sprint")
+			if startPoint == -1 {
+				startPoint = 0
+			}
+			sprintAfterNoise := sprint[startPoint:len(sprint)] + " Sisu"
+			sprintAsTag := strings.ToLower(strings.Replace(sprintAfterNoise, " ", "_", -1))
+
+			return sprintAsTag
+		}
+	}
+	return ""
+
 }
 
 // GetClubhouseType determines type based on if the Jira item is a bug or not.
