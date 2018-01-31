@@ -4,6 +4,8 @@
 
 Updated by T3db0t to use an external JSON file to map user IDs and project IDs and assorted other improvements.  See this blog post for more information and a full tutorial: http://log.liminastudio.com/programming/how-and-why-i-switched-from-jira-to-clubhouse
 
+Updated again by marc-maillard to handle default user, multiple projects, estimates, adding jira sprints as tags on Clubhouse-stories and correctly mapping stories with epics.
+
 The tool has two modes: `export` and `import`.  Use `export` to generate a JSON file and `import` to actually send all the data to Clubhouse using your API token.  Generate an API token from `https://app.clubhouse.io/[your_organization]/settings/account/api-tokens` and make it an environment variable like so: `export CLUBHOUSE_API_TOKEN=asdflkjaseflkjdf`
 
 Also included are a few utility scripts in Python: `createTestStory.py`, `deleteArchivedStories.py` and `deleteEmptyEpics.py`.  Use these like so:
@@ -25,23 +27,42 @@ A JSON file with this structure:
 [
 	{
 		"jiraUsername": "userA",
-		"chProjectID": 5,
-		"chID": "476257c9-ac5a-46bc-67d6-4bc8bbfde7be"
+		"chID": "476257c9-ac5a-46bc-67d6-4bc8bbfde7be",
+		"default: true
 	},
 	{
 		"jiraUsername": "userB",
-		"chProjectID": 81,
 		"chID": "476257c9-ac5a-46bc-67d6-4bc8bbfde7be"
 	},
 	{
 		"jiraUsername": "userC",
-		"chProjectID": 6,
 		"chID": "476257c9-ac5a-46bc-67d6-4bc8bbfde7be"
 	}
 ]
 ```
 
-You'll need to get the right JIRA usernames and Clubhouse Project ID and user IDs and fill them in with this structure.  Detail on how to do this in [my blog post](http://log.liminastudio.com/programming/how-and-why-i-switched-from-jira-to-clubhouse).
+## Project Map
+
+A JSON file with this structure:
+
+```
+[
+	{
+	"jiraProjectKey": "ProjA",
+	"chProjectID": 6
+	},
+	{
+	"jiraProjectKey": "ProjB",
+	"chProjectID": 820
+	},
+	{
+	"jiraProjectKey": "ProjC",
+	"chProjectID": 1444
+	}
+]
+```		
+
+You'll need to get the right JIRA usernames and JIRA projectkeys and Clubhouse Project ID and user IDs and fill them in with these structures. If you want to replace all unknown JIRA users with one default user, add a default=true to one of the users in userMap.json. Detail on how to do this in [this blog post](http://log.liminastudio.com/programming/how-and-why-i-switched-from-jira-to-clubhouse).
 
 ## Workflow Map
 
@@ -83,13 +104,14 @@ To get your Clubhouse workflow state IDs, you can look at `curl -X GET \
 To see what the data will look like (as JSON).
 
 ```bash
-go run *.go export --in SearchRequest.xml --map userMap.json --out file.json
+go run *.go export --in SearchRequest.xml --map userMap.json --project userProject.json --out file.json
 ```
 
 
 ### Params
  * `--in` The xml file you want to read from
  * `--map` The user maps
+ * `--project` The project maps
  * `--out` The file you want to export the JSOn to.
 
 ## Import
@@ -97,11 +119,12 @@ go run *.go export --in SearchRequest.xml --map userMap.json --out file.json
 To actually import to Clubhouse. Use `--test` to parse input files and 'preview' what the effects will be without uploading to Clubhouse.  Good for checking that everything works before pulling the trigger.
 
 ```bash
-go run *.go import --in SearchRequest.xml --map userMap.json --token $CLUBHOUSE_API_TOKEN
+go run *.go import --in SearchRequest.xml --map userMap.json --project userProject.json --token $CLUBHOUSE_API_TOKEN
 ```
 
 ### Params
  * `--in` The xml file you want to read from
  * `--map` The user maps
+ * `--project` The project maps
  * `--token` The api token for your Clubhouse instance
  * `--test` Test mode: run the program, but do not upload to Clubhouse.
