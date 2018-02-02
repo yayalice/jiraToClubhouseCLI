@@ -43,7 +43,7 @@ type JiraItem struct {
 	Comments     []JiraComment     `xml:"comments>comment"`
 	CustomFields []JiraCustomField `xml:"customfields>customfield"`
 
-	epicLink string
+	EpicLink string
 }
 
 //JiraCustomField is the information for custom fields. Right now the only one used is the Epic Link
@@ -136,7 +136,7 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 	// storyMap is used to link the JiraItem's key to its index in the chStories slice. This is then used to assign subtasks properly
 	storyMap := make(map[string]int)
 	for i, item := range chStories {
-		storyMap[item.key] = i
+		storyMap[item.ExternalID] = i
 	}
 
 	for _, task := range chTasks {
@@ -150,7 +150,7 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 func (item *JiraItem) CreateEpic() ClubHouseCreateEpic {
 	fmt.Printf("Epic Name: %s | Description: %s | Summary: %s\n\n", item.GetEpicName(), item.Description, item.Summary)
 
-	return ClubHouseCreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), key: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
+	return ClubHouseCreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), ExternalID: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
 }
 
 // CreateTask returns a task if the item is a Jira Sub-task
@@ -251,11 +251,11 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 		Comments:      comments,
 		CreatedAt:     ParseJiraTimeStamp(item.CreatedAtString),
 		Description:   item.GetDescription(),
+		ExternalID:    item.Key,
 		Labels:        labels,
 		Name:          sanitize.HTML(item.Summary),
 		ProjectID:     int64(projectID),
 		StoryType:     item.GetClubhouseType(),
-		key:           item.Key,
 		epicLink:      item.GetEpicLink(),
 		WorkflowState: state,
 		OwnerIDs:      owners,
