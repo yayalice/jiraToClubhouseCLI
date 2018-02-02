@@ -48,16 +48,16 @@ A JSON file with this structure:
 ```
 [
 	{
-	"jiraProjectKey": "ProjA",
-	"chProjectID": 6
+		"jiraProjectKey": "ProjA",
+		"chProjectID": 6
 	},
 	{
-	"jiraProjectKey": "ProjB",
-	"chProjectID": 820
+		"jiraProjectKey": "ProjB",
+		"chProjectID": 820
 	},
 	{
-	"jiraProjectKey": "ProjC",
-	"chProjectID": 1444
+		"jiraProjectKey": "ProjC",
+		"chProjectID": 1444
 	}
 ]
 ```		
