@@ -204,6 +204,21 @@ func main() {
 					fmt.Printf("Found File with JIRA Key: %s and CH ID: %d\n", file.ExternalID, file.ID)
 				}
 
+				file, err := FetchJiraAttachment("13104", "DB uppladdade.png")
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				//fmt.Println("file length: ", len(file))
+				//id := 0
+				id, err := UploadAttachmentToCH("13104", file, token)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				fmt.Printf("CH-id for JIRA attachment with ID 13104: %v\n", id)
 				return nil
 			},
 		},
