@@ -23,6 +23,11 @@ type projectMap struct {
 	CHProjectID    int
 }
 
+type attachmentMap struct {
+	JiraAttachmentKey string
+	CHAttachmentID    int
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "Jira to Clubhouse"
@@ -165,6 +170,43 @@ func main() {
 				return nil
 			},
 		},
+		{
+			Name:    "importFiles",
+			Aliases: []string{"i"},
+			Usage:   "Import Jira attachments into Clubhouse",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "token, t",
+					Usage: "Your API token",
+				},
+				cli.BoolFlag{
+					Name:   "test, T",
+					Hidden: false,
+					Usage:  "Test mode: Does not execute remote requests",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				token := c.String("token")
+				// testMode := c.Bool("test")
+
+				if token == "" {
+					fmt.Println("A token must be specified.")
+					return nil
+				}
+
+				files, err := fetchFiles(token)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				for _, file := range files {
+					fmt.Printf("Found File with JIRA Key: %s and CH ID: %d\n", file.ExternalID, file.ID)
+				}
+
+				return nil
+			},
+		},
 	}
 	app.Run(os.Args)
 }
@@ -249,6 +291,33 @@ func UploadToClubhouse(jiraFile string, userMaps []userMap, projectMaps []projec
 	return nil
 }
 
+func fetchFiles(token string) ([]ClubHouseFile, error) {
+
+	// CHAttachments := make(map[string]int)
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", GetURL("files", token), nil)
+
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode > 299 {
+		fmt.Println("response Status:", resp.Status)
+		fmt.Println("response Headers:", resp.Header)
+	}
+	body, _ := ioutil.ReadAll(resp.Body)
+	files := []ClubHouseFile{}
+	json.Unmarshal(body, &files)
+
+	return files, nil
+}
+
 // SendData will send the data to Clubhouse
 func SendData(token string, data ClubHouseData) error {
 	// epicMap is used to get the return from the submitting of the ClubHouseCreateEpic to get the ID created by the API so stories can be mapped to the correct epic.
@@ -311,7 +380,7 @@ func SendData(token string, data ClubHouseData) error {
 
 // GetURL will get the use the REST API v1 address, the resource provided and the API token to get the URL for transactions
 func GetURL(kind string, token string) string {
-	return fmt.Sprintf("%s%s?token=%s", "https://api.clubhouse.io/api/v1/", kind, token)
+	return fmt.Sprintf("%s%s?token=%s", "https://api.clubhouse.io/api/v2/", kind, token)
 }
 
 // GetDataFromXMLFile will Unmarshal the XML file into the objects used by the application.

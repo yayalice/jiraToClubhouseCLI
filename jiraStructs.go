@@ -26,24 +26,33 @@ type JiraReporter struct {
 
 // JiraItem is the struct for a basic item imported from the XML
 type JiraItem struct {
-	Assignee        JiraAssignee `xml:"assignee"`
-	CreatedAtString string       `xml:"created"`
-	Description     string       `xml:"description"`
-	Key             string       `xml:"key"`
-	Labels          []string     `xml:"labels>label"`
-	Project         JiraProject  `xml:"project"`
-	Resolution      string       `xml:"resolution"`
-	Reporter        JiraReporter `xml:"reporter"`
-	Status          string       `xml:"status"`
-	Summary         string       `xml:"summary"`
-	Title           string       `xml:"title"`
-	Type            string       `xml:"type"`
-	Parent          string       `xml:"parent"`
+	Assignee        JiraAssignee     `xml:"assignee"`
+	Attachments     []JiraAttachment `xml:"attachments>attachment"`
+	CreatedAtString string           `xml:"created"`
+	Description     string           `xml:"description"`
+	Key             string           `xml:"key"`
+	Labels          []string         `xml:"labels>label"`
+	Project         JiraProject      `xml:"project"`
+	Resolution      string           `xml:"resolution"`
+	Reporter        JiraReporter     `xml:"reporter"`
+	Status          string           `xml:"status"`
+	Summary         string           `xml:"summary"`
+	Title           string           `xml:"title"`
+	Type            string           `xml:"type"`
+	Parent          string           `xml:"parent"`
 
 	Comments     []JiraComment     `xml:"comments>comment"`
 	CustomFields []JiraCustomField `xml:"customfields>customfield"`
 
 	EpicLink string
+}
+
+// JiraAttachment is the information for attacments
+type JiraAttachment struct {
+	Author          string `xml:"author,attr"`
+	CreatedAtString string `xml:"created,attr"`
+	Name            string `xml:"name, attr"`
+	ID              string `xml:"id,attr"`
 }
 
 //JiraCustomField is the information for custom fields. Right now the only one used is the Epic Link
@@ -162,6 +171,11 @@ func (item *JiraItem) CreateTask() ClubHouseCreateTask {
 func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) ClubHouseCreateStory {
 	// fmt.Println("assignee: ", item.Assignee, "reporter: ", item.Reporter)
 	// return ClubHouseCreateStory{}
+
+	attachments := []ClubHouseCreateAttachment{}
+	for _, attch := range item.Attachments {
+		attachments = append(attachments, attch.CreateAttachment(userMaps))
+	}
 
 	comments := []ClubHouseCreateComment{}
 	for _, c := range item.Comments {
@@ -284,6 +298,17 @@ func MapProject(projectMaps []projectMap, jiraProjectKey string) int {
 	}
 
 	return projectID
+}
+
+func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) ClubHouseCreateAttachment {
+	author := MapUser(userMaps, attachment.Author)
+
+	return ClubHouseCreateAttachment{
+		Author:     author,
+		CreatedAt:  ParseJiraTimeStamp(attachment.CreatedAtString),
+		ExternalID: attachment.ID,
+		Name:       attachment.Name,
+	}
 }
 
 // CreateComment takes the JiraItem's comment data and returns a ClubHouseCreateComment

@@ -16,6 +16,20 @@ type ClubHouseCreateEpic struct {
 	id          int64     `json:"id"`
 }
 
+type ClubHouseFile struct {
+	ID         int64  `json:"id"`
+	ExternalID string `json:"external_id"`
+}
+
+// ClubhouseCreateAttachment is used in ClubHouseCreateStory for attachments
+type ClubHouseCreateAttachment struct {
+	Author     string    `json:"author_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExternalID string    `json:"external_id"`
+	Name       string    `json:"name"`
+	id         int64     `json:"id"`
+}
+
 // ClubHouseCreateComment is used in ClubHouseCreateStory for comments.
 type ClubHouseCreateComment struct {
 	Text      string    `json:"text"`
