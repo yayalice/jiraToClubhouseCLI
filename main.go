@@ -6,6 +6,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"jiraToClubhouseCLI/internal/clubHouse"
+	"jiraToClubhouseCLI/internal/clubHouseFiles"
 	"net/http"
 	"os"
 
@@ -194,7 +196,7 @@ func main() {
 					return nil
 				}
 
-				files, err := fetchFiles(token)
+				files, err := clubHouseFiles.ReadList(token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -212,7 +214,7 @@ func main() {
 
 				//fmt.Println("file length: ", len(file))
 				//id := 0
-				uploadedFile, err := UploadAttachmentToCH("13104", token, file, "MyFileName")
+				uploadedFile, err := clubHouseFiles.Create(file, "MyFileName", "13104", token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -307,35 +309,8 @@ func UploadToClubhouse(jiraFile string, userMaps []userMap, projectMaps []projec
 	return nil
 }
 
-func fetchFiles(token string) ([]ClubHouseFile, error) {
-
-	// CHAttachments := make(map[string]int)
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", GetURL("files", token), nil)
-
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode > 299 {
-		fmt.Println("response Status:", resp.Status)
-		fmt.Println("response Headers:", resp.Header)
-	}
-	body, _ := ioutil.ReadAll(resp.Body)
-	files := []ClubHouseFile{}
-	json.Unmarshal(body, &files)
-
-	return files, nil
-}
-
 // SendData will send the data to Clubhouse
-func SendData(token string, data ClubHouseData) error {
+func SendData(token string, data clubHouse.Data) error {
 	// epicMap is used to get the return from the submitting of the ClubHouseCreateEpic to get the ID created by the API so stories can be mapped to the correct epic.
 	epicMap := make(map[string]int64)
 
@@ -358,14 +333,14 @@ func SendData(token string, data ClubHouseData) error {
 			fmt.Println("response Headers:", resp.Header)
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
-		newEpic := ClubHouseEpic{}
+		newEpic := clubHouse.Epic{}
 		json.Unmarshal(body, &newEpic)
 		epicMap[epic.Name] = newEpic.ID
 	}
 
 	for _, story := range data.Stories {
-		if story.epicLink != "" {
-			story.EpicID = epicMap[story.epicLink]
+		if story.EpicLink != "" {
+			story.EpicID = epicMap[story.EpicLink]
 		}
 		jsonStr, err := json.Marshal(story)
 		if err != nil {

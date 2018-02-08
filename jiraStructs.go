@@ -107,7 +107,7 @@ func GetProjectInfo(projectMaps []projectMap, jiraProjectKey string) (CHProjectI
 }
 
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) clubHouse.ClubHouseData {
+func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) clubHouse.Data {
 	epics := []JiraItem{}
 	tasks := []JiraItem{}
 	stories := []JiraItem{}
@@ -126,14 +126,14 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 		}
 	}
 
-	chEpics := []clubHouse.ClubHouseCreateEpic{}
+	chEpics := []clubHouse.CreateEpic{}
 
 	for _, item := range epics {
 		chEpics = append(chEpics, item.CreateEpic())
 	}
 
-	chTasks := []ClubHouseCreateTask{}
-	chStories := []ClubHouseCreateStory{}
+	chTasks := []clubHouse.CreateTask{}
+	chStories := []clubHouse.CreateStory{}
 
 	for _, item := range tasks {
 		chTasks = append(chTasks, item.CreateTask())
@@ -150,50 +150,50 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 	}
 
 	for _, task := range chTasks {
-		chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
+		chStories[storyMap[task.Parent]].Tasks = append(chStories[storyMap[task.Parent]].Tasks, task)
 	}
 
-	return ClubHouseData{Epics: chEpics, Stories: chStories}
+	return clubHouse.Data{Epics: chEpics, Stories: chStories}
 }
 
-// CreateEpic returns a ClubHouseCreateEpic from the JiraItem
-func (item *JiraItem) CreateEpic() ClubHouseCreateEpic {
+// CreateEpic returns a CreateEpic from the JiraItem
+func (item *JiraItem) CreateEpic() clubHouse.CreateEpic {
 	fmt.Printf("Epic Name: %s | Description: %s | Summary: %s\n\n", item.GetEpicName(), item.Description, item.Summary)
 
-	return ClubHouseCreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), ExternalID: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
+	return clubHouse.CreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), ExternalID: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
 }
 
 // CreateTask returns a task if the item is a Jira Sub-task
-func (item *JiraItem) CreateTask() ClubHouseCreateTask {
-	return ClubHouseCreateTask{Description: sanitize.HTML(item.Summary), parent: item.Parent, Complete: false}
+func (item *JiraItem) CreateTask() clubHouse.CreateTask {
+	return clubHouse.CreateTask{Description: sanitize.HTML(item.Summary), Parent: item.Parent, Complete: false}
 }
 
-// CreateStory returns a ClubHouseCreateStory from the JiraItem
-func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) ClubHouseCreateStory {
+// CreateStory re from the JiraItem
+func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) clubHouse.CreateStory {
 	// fmt.Println("assignee: ", item.Assignee, "reporter: ", item.Reporter)
-	// return ClubHouseCreateStory{}
+	//{}
 
-	attachments := []ClubHouseCreateAttachment{}
+	attachments := []clubHouse.CreateAttachment{}
 	for _, attch := range item.Attachments {
 		attachments = append(attachments, attch.CreateAttachment(userMaps))
 	}
 
-	comments := []ClubHouseCreateComment{}
+	comments := []clubHouse.CreateComment{}
 	for _, c := range item.Comments {
 		comments = append(comments, c.CreateComment(userMaps))
 	}
 
-	labels := []ClubHouseCreateLabel{}
+	labels := []clubHouse.CreateLabel{}
 	for _, label := range item.Labels {
-		labels = append(labels, ClubHouseCreateLabel{Name: strings.ToLower(label)})
+		labels = append(labels, clubHouse.CreateLabel{Name: strings.ToLower(label)})
 	}
 	// Adding special label that indicates that it was imported from JIRA
-	labels = append(labels, ClubHouseCreateLabel{Name: "JIRA"})
+	labels = append(labels, clubHouse.CreateLabel{Name: "JIRA"})
 
 	// Adding Sprint as label
 	sprintLabel := item.GetSprint()
 	if sprintLabel != "" {
-		labels = append(labels, ClubHouseCreateLabel{Name: sprintLabel})
+		labels = append(labels, clubHouse.CreateLabel{Name: sprintLabel})
 	}
 
 	// Overwrite supplied Project ID
@@ -262,7 +262,7 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 
 	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint())
 
-	return ClubHouseCreateStory{
+	return clubHouse.CreateStory{
 		Comments:      comments,
 		CreatedAt:     ParseJiraTimeStamp(item.CreatedAtString),
 		Description:   item.GetDescription(),
@@ -271,7 +271,7 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 		Name:          sanitize.HTML(item.Summary),
 		ProjectID:     int64(projectID),
 		StoryType:     item.GetClubhouseType(),
-		epicLink:      item.GetEpicLink(),
+		EpicLink:      item.GetEpicLink(),
 		WorkflowState: state,
 		OwnerIDs:      owners,
 		RequestedBy:   requestor,
@@ -301,10 +301,10 @@ func MapProject(projectMaps []projectMap, jiraProjectKey string) int {
 	return projectID
 }
 
-func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) ClubHouseCreateAttachment {
+func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) clubHouse.CreateAttachment {
 	author := MapUser(userMaps, attachment.Author)
 
-	return ClubHouseCreateAttachment{
+	return clubHouse.CreateAttachment{
 		Author:     author,
 		CreatedAt:  ParseJiraTimeStamp(attachment.CreatedAtString),
 		ExternalID: attachment.ID,
@@ -312,15 +312,15 @@ func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) ClubHouse
 	}
 }
 
-// CreateComment takes the JiraItem's comment data and returns a ClubHouseCreateComment
-func (comment *JiraComment) CreateComment(userMaps []userMap) ClubHouseCreateComment {
+// CreateComment takes the JiraItem's comment data and returns a CreateComment
+func (comment *JiraComment) CreateComment(userMaps []userMap) clubHouse.CreateComment {
 	commentText := sanitize.HTML(comment.Comment)
 	if commentText == "\n" {
 		commentText = "(empty)"
 	}
 	author := MapUser(userMaps, comment.Author)
 
-	return ClubHouseCreateComment{
+	return clubHouse.CreateComment{
 		Text:      commentText,
 		CreatedAt: ParseJiraTimeStamp(comment.CreatedAtString),
 		Author:    author,

@@ -1,16 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 )
 
 // FetchJiraAttachment downloads a specific attachment from JIRA
-func FetchJiraAttachment(id string, name string) (io.Reader, error) {
+func FetchJiraAttachment(id string, name string) ([]byte, error) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", getJiraURL(id, name), nil)
@@ -34,9 +32,7 @@ func FetchJiraAttachment(id string, name string) (io.Reader, error) {
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	r := bytes.NewReader(body)
-
-	return r, nil
+	return body, nil
 }
 
 func getJiraURL(id string, name string) string {
