@@ -1,14 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 )
 
 // FetchJiraAttachment downloads a specific attachment from JIRA
-func FetchJiraAttachment(id string, name string) ([]byte, error) {
+func FetchJiraAttachment(id string, name string) (io.Reader, error) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", getJiraURL(id, name), nil)
@@ -24,6 +26,7 @@ func FetchJiraAttachment(id string, name string) ([]byte, error) {
 		fmt.Println(err)
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
 		fmt.Println("response Status:", resp.Status)
@@ -31,13 +34,9 @@ func FetchJiraAttachment(id string, name string) ([]byte, error) {
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	//err = ioutil.WriteFile(name, body, 0644)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return nil, err
-	//}
+	r := bytes.NewReader(body)
 
-	return body, nil
+	return r, nil
 }
 
 func getJiraURL(id string, name string) string {

@@ -212,13 +212,14 @@ func main() {
 
 				//fmt.Println("file length: ", len(file))
 				//id := 0
-				id, err := UploadAttachmentToCH("13104", file, token)
+				uploadedFile, err := UploadAttachmentToCH("13104", token, file, "MyFileName")
 				if err != nil {
 					fmt.Println(err)
 					return err
 				}
 
-				fmt.Printf("CH-id for JIRA attachment with ID 13104: %v\n", id)
+				fmt.Printf("CH-id for JIRA attachment with ID %v: %v\n", uploadedFile.ExternalID, uploadedFile.ID)
+
 				return nil
 			},
 		},

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"jiraToClubhouseCLI/internal/clubHouse"
 	"strconv"
 	"strings"
 	"time"
@@ -106,7 +107,7 @@ func GetProjectInfo(projectMaps []projectMap, jiraProjectKey string) (CHProjectI
 }
 
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) ClubHouseData {
+func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) clubHouse.ClubHouseData {
 	epics := []JiraItem{}
 	tasks := []JiraItem{}
 	stories := []JiraItem{}
@@ -125,7 +126,7 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 		}
 	}
 
-	chEpics := []ClubHouseCreateEpic{}
+	chEpics := []clubHouse.ClubHouseCreateEpic{}
 
 	for _, item := range epics {
 		chEpics = append(chEpics, item.CreateEpic())
