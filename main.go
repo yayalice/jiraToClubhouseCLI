@@ -7,28 +7,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"jiraToClubhouseCLI/internal/clubHouse"
-	"jiraToClubhouseCLI/internal/clubHouseFiles"
+	"jiraToClubhouseCLI/internal/jira"
 	"net/http"
 	"os"
 
 	"github.com/urfave/cli"
 )
-
-type userMap struct {
-	JiraUsername string
-	CHID         string
-	Default      bool
-}
-
-type projectMap struct {
-	JiraProjectKey string
-	CHProjectID    int
-}
-
-type attachmentMap struct {
-	JiraAttachmentKey string
-	CHAttachmentID    int
-}
 
 func main() {
 	app := cli.NewApp()
@@ -196,7 +180,7 @@ func main() {
 					return nil
 				}
 
-				files, err := clubHouseFiles.ReadList(token)
+				files, err := clubHouse.ReadFileList(token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -214,7 +198,7 @@ func main() {
 
 				//fmt.Println("file length: ", len(file))
 				//id := 0
-				uploadedFile, err := clubHouseFiles.Create(file, "MyFileName", "13104", token)
+				uploadedFile, err := clubHouse.CreateFile(file, "MyFileName", "13104", token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -375,7 +359,7 @@ func GetURL(kind string, token string) string {
 }
 
 // GetDataFromXMLFile will Unmarshal the XML file into the objects used by the application.
-func GetDataFromXMLFile(jiraFile string) (JiraExport, error) {
+func GetDataFromXMLFile(jiraFile string) (jira.Export, error) {
 	xmlFile, err := os.Open(jiraFile)
 	if err != nil {
 		return JiraExport{}, err
