@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"jiraToClubhouseCLI/internal/clubHouse"
-	"jiraToClubhouseCLI/internal/jira"
 	"strconv"
 	"strings"
 	"time"
@@ -11,48 +9,11 @@ import (
 	"github.com/kennygrant/sanitize"
 )
 
-type jiraItem jira.Item
-type jiraExport jira.Export
-type jiraAttachment jira.Attachment
-type jiraComment jira.Comment
-
-func GetUserInfo(userMaps []userMap, jiraUsername string) (CHID string) {
-
-	defaultUser := ""
-
-	for _, u := range userMaps {
-		if u.JiraUsername == jiraUsername {
-			return u.CHID
-		}
-		if u.Default == true {
-			defaultUser = u.CHID
-		}
-	}
-	if defaultUser != "" {
-		fmt.Printf("Unknown user %s. Will use default user: %s\n\n", jiraUsername, defaultUser)
-	} else {
-		fmt.Printf("Unknown user %s. No default user defined in userMap. This story will not be created\n\n", jiraUsername)
-	}
-
-	return defaultUser
-}
-
-func GetProjectInfo(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int) {
-
-	for _, u := range projectMaps {
-		// fmt.Printf("JiraProjectKey: %s | CHProjectID: %d\n\n", u.JiraProjectKey, u.CHProjectID)
-		if u.JiraProjectKey == jiraProjectKey {
-			return u.CHProjectID
-		}
-	}
-	return 0
-}
-
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *jiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) clubHouse.Data {
-	epics := []jira.Item{}
-	tasks := []jira.Item{}
-	stories := []jira.Item{}
+func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) CHData {
+	epics := []JiraItem{}
+	tasks := []JiraItem{}
+	stories := []JiraItem{}
 
 	for _, item := range je.Items {
 		switch item.Type {
@@ -68,14 +29,14 @@ func (je *jiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 		}
 	}
 
-	chEpics := []clubHouse.CreateEpic{}
+	chEpics := []CHEpic{}
 
 	for _, item := range epics {
 		chEpics = append(chEpics, item.CreateEpic())
 	}
 
-	chTasks := []clubHouse.CreateTask{}
-	chStories := []clubHouse.CreateStory{}
+	chTasks := []CHTask{}
+	chStories := []CHStory{}
 
 	for _, item := range tasks {
 		chTasks = append(chTasks, item.CreateTask())
@@ -95,59 +56,61 @@ func (je *jiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 		chStories[storyMap[task.Parent]].Tasks = append(chStories[storyMap[task.Parent]].Tasks, task)
 	}
 
-	return clubHouse.Data{Epics: chEpics, Stories: chStories}
+	return CHData{Epics: chEpics, Stories: chStories}
 }
 
 // CreateEpic returns a CreateEpic from the JiraItem
-func (item *jiraItem) CreateEpic() clubHouse.CreateEpic {
+func (item *JiraItem) CreateEpic() CHEpic {
 	fmt.Printf("Epic Name: %s | Description: %s | Summary: %s\n\n", item.GetEpicName(), item.Description, item.Summary)
 
-	return clubHouse.CreateEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), ExternalID: item.Key, CreatedAt: ParseJiraTimeStamp(item.CreatedAtString)}
+	return CHEpic{Description: sanitize.HTML(item.Summary + "<br><br>" + item.Description), Name: sanitize.HTML(item.GetEpicName()), ExternalID: item.Key, CreatedAt: parseJiraTimeStamp(item.CreatedAtString)}
 }
 
 // CreateTask returns a task if the item is a Jira Sub-task
-func (item *jiraItem) CreateTask() clubHouse.CreateTask {
-	return clubHouse.CreateTask{Description: sanitize.HTML(item.Summary), Parent: item.Parent, Complete: false}
+func (item *JiraItem) CreateTask() CHTask {
+	return CHTask{Description: sanitize.HTML(item.Summary), Parent: item.Parent, Complete: false}
 }
 
 // CreateStory re from the JiraItem
-func (item *jiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) clubHouse.CreateStory {
+func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) CHStory {
 	// fmt.Println("assignee: ", item.Assignee, "reporter: ", item.Reporter)
 	//{}
 
-	attachments := []clubHouse.CreateAttachment{}
+	attachments := []CHFile{}
 	for _, attch := range item.Attachments {
 		attachments = append(attachments, attch.CreateAttachment(userMaps))
 	}
 
-	comments := []clubHouse.CreateComment{}
+	comments := []CHComment{}
 	for _, c := range item.Comments {
 		comments = append(comments, c.CreateComment(userMaps))
 	}
 
-	labels := []clubHouse.CreateLabel{}
+	labels := []CHLabel{}
 	for _, label := range item.Labels {
-		labels = append(labels, clubHouse.CreateLabel{Name: strings.ToLower(label)})
+		labels = append(labels, CHLabel{Name: strings.ToLower(label)})
 	}
 	// Adding special label that indicates that it was imported from JIRA
-	labels = append(labels, clubHouse.CreateLabel{Name: "JIRA"})
+	labels = append(labels, CHLabel{Name: "JIRA"})
 
 	// Adding Sprint as label
 	sprintLabel := item.GetSprint()
 	if sprintLabel != "" {
-		labels = append(labels, clubHouse.CreateLabel{Name: sprintLabel})
+		labels = append(labels, CHLabel{Name: sprintLabel})
 	}
 
 	// Overwrite supplied Project ID
-	projectID := MapProject(projectMaps, item.Project.Key)
-	// projectID, ownerID := GetUserInfo(userMaps, item.Assignee.Username)
+	projectID, err := MapProject(projectMaps, item.Project.Key)
+	if err != nil {
+		return CHStory{}
+	}
 
 	// Map JIRA assignee to Clubhouse owner(s)
 	// Leave array empty if username is unknown
 	// Must use "make" function to force empty array for correct JSON marshalling
-	ownerID := MapUser(userMaps, item.Assignee.Username)
+	ownerID, err := MapUser(userMaps, item.Assignee.Username)
 	var owners []string
-	if ownerID != "" {
+	if err == nil {
 		// owners := []string{ownerID}
 		owners = append(owners, ownerID)
 	} else {
@@ -199,14 +162,14 @@ func (item *jiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 		state = 500000003
 	}
 
-	requestor := MapUser(userMaps, item.Reporter.Username)
+	requestor, err := MapUser(userMaps, item.Reporter.Username)
 	// _, requestor := GetUserInfo(userMaps, item.Reporter.Username)
 
 	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint())
 
-	return clubHouse.CreateStory{
+	return CHStory{
 		Comments:      comments,
-		CreatedAt:     ParseJiraTimeStamp(item.CreatedAtString),
+		CreatedAt:     parseJiraTimeStamp(item.CreatedAtString),
 		Description:   item.GetDescription(),
 		ExternalID:    item.Key,
 		Labels:        labels,
@@ -221,34 +184,40 @@ func (item *jiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 	}
 }
 
-func (attachment *jiraAttachment) CreateAttachment(userMaps []userMap) clubHouse.CreateAttachment {
-	author := MapUser(userMaps, attachment.Author)
+func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) CHFile {
+	author, err := MapUser(userMaps, attachment.Author)
+	if err != nil {
+		return CHFile{}
+	}
 
-	return clubHouse.CreateAttachment{
+	return CHFile{
 		Author:     author,
-		CreatedAt:  ParseJiraTimeStamp(attachment.CreatedAtString),
+		CreatedAt:  parseJiraTimeStamp(attachment.CreatedAtString),
 		ExternalID: attachment.ID,
 		Name:       attachment.Name,
 	}
 }
 
 // CreateComment takes the JiraItem's comment data and returns a CreateComment
-func (comment *jiraComment) CreateComment(userMaps []userMap) clubHouse.CreateComment {
+func (comment *JiraComment) CreateComment(userMaps []userMap) CHComment {
 	commentText := sanitize.HTML(comment.Comment)
 	if commentText == "\n" {
 		commentText = "(empty)"
 	}
-	author := MapUser(userMaps, comment.Author)
+	author, err := MapUser(userMaps, comment.Author)
+	if err != nil {
+		return CHComment{}
+	}
 
-	return clubHouse.CreateComment{
+	return CHComment{
 		Text:      commentText,
-		CreatedAt: ParseJiraTimeStamp(comment.CreatedAtString),
+		CreatedAt: parseJiraTimeStamp(comment.CreatedAtString),
 		Author:    author,
 	}
 }
 
 // GetEpicLink returns the Epic Link of a Jira Item.
-func (item *jiraItem) GetEpicLink() string {
+func (item *JiraItem) GetEpicLink() string {
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Epic Link" {
 			return cf.FieldVales[0]
@@ -258,7 +227,7 @@ func (item *jiraItem) GetEpicLink() string {
 }
 
 // GetAcceptanceCriteria returns the acceptance criteria
-func (item *jiraItem) GetAcceptanceCriteria() string {
+func (item *JiraItem) GetAcceptanceCriteria() string {
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Acceptance Criteria" {
 			header := "<br>## Acceptance Criteria<br>"
@@ -269,33 +238,23 @@ func (item *jiraItem) GetAcceptanceCriteria() string {
 }
 
 // GetEstimate returns the Story Points
-func (item *jiraItem) GetEstimate() int64 {
+func (item *JiraItem) GetEstimate() int64 {
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Story Points" {
 			storyPoint := cf.FieldVales[0]
-			return ParseFloatStringToInt(storyPoint)
+			return parseFloatStringToInt(storyPoint)
 		}
 	}
 	return 0
 }
 
-// ParseFloatStringToInt parses a string containing a float into an uprounded int
-func ParseFloatStringToInt(sFloat string) int64 {
-	f, err := strconv.ParseFloat(sFloat, 64)
-	if err == nil {
-		i := int64(f + 0.5)
-		return i
-	}
-	return 0
-}
-
 // GetDescription returns a concatenation of description and acceptance criteria
-func (item *jiraItem) GetDescription() string {
+func (item *JiraItem) GetDescription() string {
 	return sanitize.HTML(item.Description + item.GetAcceptanceCriteria())
 }
 
 // GetSprint returns a string to be used as tag for srint grouping
-func (item *jiraItem) GetSprint() string {
+func (item *JiraItem) GetSprint() string {
 
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Sprint" {
@@ -316,7 +275,7 @@ func (item *jiraItem) GetSprint() string {
 }
 
 // GetEpicName returns the name of an epic stored in custom fields
-func (item *jiraItem) GetEpicName() string {
+func (item *JiraItem) GetEpicName() string {
 	for _, cf := range item.CustomFields {
 		if cf.FieldName == "Epic Name" {
 			epicName := cf.FieldVales[0]
@@ -327,15 +286,23 @@ func (item *jiraItem) GetEpicName() string {
 }
 
 // GetClubhouseType determines type based on if the Jira item is a bug or not.
-func (item *jiraItem) GetClubhouseType() string {
+func (item *JiraItem) GetClubhouseType() string {
 	if item.Type == "Bug" {
 		return "bug"
 	}
 	return "feature"
 }
 
-// ParseJiraTimeStamp parses the format in the XML using Go's magical timestamp.
-func ParseJiraTimeStamp(dateString string) time.Time {
+func parseFloatStringToInt(sFloat string) int64 {
+	f, err := strconv.ParseFloat(sFloat, 64)
+	if err == nil {
+		i := int64(f + 0.5)
+		return i
+	}
+	return 0
+}
+
+func parseJiraTimeStamp(dateString string) time.Time {
 	format := "Mon, 2 Jan 2006 15:04:05 -0700"
 	t, err := time.Parse(format, dateString)
 	if err != nil {

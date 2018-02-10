@@ -3,11 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io/ioutil"
-	"jiraToClubhouseCLI/internal/clubHouse"
-	"jiraToClubhouseCLI/internal/jira"
 	"net/http"
 	"os"
 
@@ -180,7 +177,7 @@ func main() {
 					return nil
 				}
 
-				files, err := clubHouse.ReadFileList(token)
+				files, err := CHReadFileList(token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -190,7 +187,7 @@ func main() {
 					fmt.Printf("Found File with JIRA Key: %s and CH ID: %d\n", file.ExternalID, file.ID)
 				}
 
-				file, err := FetchJiraAttachment("13104", "DB uppladdade.png")
+				file, err := JiraReadFile("13104", "DB uppladdade.png")
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -198,7 +195,7 @@ func main() {
 
 				//fmt.Println("file length: ", len(file))
 				//id := 0
-				uploadedFile, err := clubHouse.CreateFile(file, "MyFileName", "13104", token)
+				uploadedFile, err := CHCreateFile(file, "MyFileName", "13104", token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -211,67 +208,6 @@ func main() {
 		},
 	}
 	app.Run(os.Args)
-}
-
-func GetUserMap(mapFile string) ([]userMap, error) {
-	jsonFile, err := os.Open(mapFile)
-	if err != nil {
-		return []userMap{}, err
-	}
-
-	defer jsonFile.Close()
-	JSONData, err := ioutil.ReadAll(jsonFile)
-	if err != nil {
-		return []userMap{}, err
-	}
-
-	// userMaps := []userMap
-	var userMaps []userMap
-	err = json.Unmarshal(JSONData, &userMaps)
-	if err != nil {
-		return []userMap{}, err
-	}
-
-	return userMaps, nil
-}
-
-func GetProjectMap(projectMapFile string) ([]projectMap, error) {
-	jsonFile, err := os.Open(projectMapFile)
-	if err != nil {
-		return []projectMap{}, err
-	}
-
-	defer jsonFile.Close()
-	JSONData, err := ioutil.ReadAll(jsonFile)
-	if err != nil {
-		return []projectMap{}, err
-	}
-
-	// userMaps := []userMap
-	var projectMaps []projectMap
-	err = json.Unmarshal(JSONData, &projectMaps)
-	if err != nil {
-		return []projectMap{}, err
-	}
-
-	return projectMaps, nil
-}
-
-// ExportToJSON will import the XML and then export the data to the file specified.
-func ExportToJSON(jiraFile string, userMaps []userMap, projectMaps []projectMap, exportFile string) error {
-	export, err := GetDataFromXMLFile(jiraFile)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(export.GetDataForClubhouse(userMaps, projectMaps))
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(exportFile, data, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // UploadToClubhouse will import the XML, and upload it to Clubhouse
@@ -294,7 +230,7 @@ func UploadToClubhouse(jiraFile string, userMaps []userMap, projectMaps []projec
 }
 
 // SendData will send the data to Clubhouse
-func SendData(token string, data clubHouse.Data) error {
+func SendData(token string, data CHData) error {
 	// epicMap is used to get the return from the submitting of the ClubHouseCreateEpic to get the ID created by the API so stories can be mapped to the correct epic.
 	epicMap := make(map[string]int64)
 
@@ -317,7 +253,7 @@ func SendData(token string, data clubHouse.Data) error {
 			fmt.Println("response Headers:", resp.Header)
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
-		newEpic := clubHouse.Epic{}
+		newEpic := CHEpic{}
 		json.Unmarshal(body, &newEpic)
 		epicMap[epic.Name] = newEpic.ID
 	}
@@ -356,26 +292,4 @@ func SendData(token string, data clubHouse.Data) error {
 // GetURL will get the use the REST API v1 address, the resource provided and the API token to get the URL for transactions
 func GetURL(kind string, token string) string {
 	return fmt.Sprintf("%s%s?token=%s", "https://api.clubhouse.io/api/v2/", kind, token)
-}
-
-// GetDataFromXMLFile will Unmarshal the XML file into the objects used by the application.
-func GetDataFromXMLFile(jiraFile string) (jira.Export, error) {
-	xmlFile, err := os.Open(jiraFile)
-	if err != nil {
-		return JiraExport{}, err
-	}
-
-	defer xmlFile.Close()
-	XMLData, err := ioutil.ReadAll(xmlFile)
-	if err != nil {
-		return JiraExport{}, err
-	}
-
-	jiraExport := JiraExport{}
-	err = xml.Unmarshal(XMLData, &jiraExport)
-	if err != nil {
-		return JiraExport{}, err
-	}
-
-	return jiraExport, nil
 }

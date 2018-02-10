@@ -25,13 +25,20 @@ func MapUser(userMaps []userMap, jiraUsername string) (CHID string, err error) {
 }
 
 // MapProject tries to map a given jira project with a clubhouse project
-func MapProject(projectMaps []projectMap, jiraProjectKey string) int {
-	projectID := GetProjectInfo(projectMaps, jiraProjectKey)
+func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int, err error) {
+	//projectID := GetProjectInfo(projectMaps, jiraProjectKey)
 
-	if projectID == 0 {
-		fmt.Println("[MapProject] JIRA project not found: ", jiraProjectKey)
-		return 299
+	for _, u := range projectMaps {
+		if u.JiraProjectKey == jiraProjectKey {
+			CHProjectID = u.CHProjectID
+		}
 	}
 
-	return projectID
+	if CHProjectID == 0 {
+		err = fmt.Errorf("[MapProject] JIRA project not found: %v", jiraProjectKey)
+		fmt.Println(err.Error())
+		CHProjectID = 299
+	}
+
+	return CHProjectID, err
 }
