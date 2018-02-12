@@ -42,3 +42,23 @@ func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID in
 
 	return CHProjectID, err
 }
+
+func GenerateMapForExistingCHFiles(existingCHFiles []CHFile) map[string]int64 {
+
+	x := make(map[string]int64)
+	for _, clubHouseFile := range existingCHFiles {
+		x[clubHouseFile.ExternalID] = clubHouseFile.ID
+	}
+	return x
+
+}
+
+func GenerateMapForExistingCHStories(existingCHStories []CHStorySlim) map[string]int64 {
+
+	x := make(map[string]int64)
+	for _, clubHouseStorySlim := range existingCHStories {
+		x[clubHouseStorySlim.ExternalID] = clubHouseStorySlim.ID
+	}
+	return x
+
+}

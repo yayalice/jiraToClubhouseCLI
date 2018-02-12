@@ -13,5 +13,9 @@ type projectMap struct {
 
 type attachmentMap struct {
 	JiraAttachmentKey string
-	CHAttachmentID    int
+	CHAttachmentID    int64
+	JiraStoryKey      string
+	CHStoryID         int64
 }
+
+type attachmentMigrationList map[string][]CHFile

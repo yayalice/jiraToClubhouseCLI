@@ -47,7 +47,7 @@ type JiraItem struct {
 type JiraAttachment struct {
 	Author          string `xml:"author,attr"`
 	CreatedAtString string `xml:"created,attr"`
-	Name            string `xml:"name, attr"`
+	Name            string `xml:"name,attr"`
 	ID              string `xml:"id,attr"`
 }
 

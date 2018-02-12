@@ -47,6 +47,13 @@ type CHStory struct {
 	RequestedBy   string   `json:"requested_by_id"`
 }
 
+type CHStorySlim struct {
+	ID         int64   `json:"id"`
+	ExternalID string  `json:"external_id"`
+	Name       string  `json:"name"`
+	FileIDs    []int64 `json:"file_ids"`
+}
+
 // CHLabel is used to submit labels with stories, it looks like from the API that duplicates will not be created.
 type CHLabel struct {
 	Name string `json:"name"`

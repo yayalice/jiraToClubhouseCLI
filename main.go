@@ -159,6 +159,14 @@ func main() {
 			Usage:   "Import Jira attachments into Clubhouse",
 			Flags: []cli.Flag{
 				cli.StringFlag{
+					Name:  "in, i",
+					Usage: "The Jira XML file you want to read in.",
+				},
+				cli.StringFlag{
+					Name:  "map, m",
+					Usage: "The JSON file containing user mappings",
+				},
+				cli.StringFlag{
 					Name:  "token, t",
 					Usage: "Your API token",
 				},
@@ -169,39 +177,37 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
+				jiraFile := c.String("in")
+				mapFile := c.String("map")
 				token := c.String("token")
-				// testMode := c.Bool("test")
+				testMode := c.Bool("test")
+
+				if jiraFile == "" {
+					fmt.Println("An input XML file must be specified.")
+					return nil
+				}
+
+				if mapFile == "" {
+					fmt.Println("A user map JSON file must be specified.")
+					return nil
+				}
 
 				if token == "" {
 					fmt.Println("A token must be specified.")
 					return nil
 				}
 
-				files, err := CHReadFileList(token)
+				userMaps, err := GetUserMap(mapFile)
 				if err != nil {
 					fmt.Println(err)
 					return err
 				}
 
-				for _, file := range files {
-					fmt.Printf("Found File with JIRA Key: %s and CH ID: %d\n", file.ExternalID, file.ID)
-				}
-
-				file, err := JiraReadFile("13104", "DB uppladdade.png")
+				err = MigrateFiles(jiraFile, userMaps, token, testMode)
 				if err != nil {
 					fmt.Println(err)
 					return err
 				}
-
-				//fmt.Println("file length: ", len(file))
-				//id := 0
-				uploadedFile, err := CHCreateFile(file, "MyFileName", "13104", token)
-				if err != nil {
-					fmt.Println(err)
-					return err
-				}
-
-				fmt.Printf("CH-id for JIRA attachment with ID %v: %v\n", uploadedFile.ExternalID, uploadedFile.ID)
 
 				return nil
 			},

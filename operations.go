@@ -59,6 +59,34 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 	return CHData{Epics: chEpics, Stories: chStories}
 }
 
+func (je *JiraExport) GetFileListFromXMLFile(userMaps []userMap) (attachmentList attachmentMigrationList) {
+
+	stories := []JiraItem{}
+
+	for _, item := range je.Items {
+		switch item.Type {
+		case "Epic":
+			break
+		case "Sub-task":
+			break
+		default:
+			stories = append(stories, item)
+			break
+		}
+	}
+
+	x := make(map[string][]CHFile)
+	for _, item := range stories {
+		var clubHouseFiles []CHFile
+		for _, attachment := range item.Attachments {
+			clubHouseFiles = append(clubHouseFiles, attachment.CreateCHFile(userMaps))
+		}
+		x[item.Key] = clubHouseFiles
+	}
+
+	return x
+}
+
 // CreateEpic returns a CreateEpic from the JiraItem
 func (item *JiraItem) CreateEpic() CHEpic {
 	fmt.Printf("Epic Name: %s | Description: %s | Summary: %s\n\n", item.GetEpicName(), item.Description, item.Summary)
@@ -78,7 +106,7 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 
 	attachments := []CHFile{}
 	for _, attch := range item.Attachments {
-		attachments = append(attachments, attch.CreateAttachment(userMaps))
+		attachments = append(attachments, attch.CreateCHFile(userMaps))
 	}
 
 	comments := []CHComment{}
@@ -184,18 +212,57 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 	}
 }
 
-func (attachment *JiraAttachment) CreateAttachment(userMaps []userMap) CHFile {
+func (attachment *JiraAttachment) CreateCHFile(userMaps []userMap) CHFile {
 	author, err := MapUser(userMaps, attachment.Author)
 	if err != nil {
 		return CHFile{}
 	}
-
+	fmt.Printf("Jira File information: Author: %v, CreatedAt: %v, ExternalID: %v, Name: %v\n", author, parseJiraTimeStamp(attachment.CreatedAtString), attachment.ID, attachment.Name)
 	return CHFile{
 		Author:     author,
 		CreatedAt:  parseJiraTimeStamp(attachment.CreatedAtString),
 		ExternalID: attachment.ID,
 		Name:       attachment.Name,
 	}
+}
+
+func (attachmentList *attachmentMigrationList) RemoveDoubles(CHExistingFilesList []CHFile) {
+
+	CHExistingFilesMap := GenerateMapForExistingCHFiles(CHExistingFilesList)
+
+	var updatedMap map[string][]CHFile
+
+	for k, v := range attachmentList {
+		var updatedFileList []CHFile
+		for _, jiraFile := range v {
+			if val, ok := CHExistingFilesMap[jiraFile.ExternalID]; ok {
+				fmt.Printf("The file with the Jira key: %v and belonging to the story: %v already exists in Clubhouse with the ID: %v\n", jiraFile.ExternalID, k, val)
+			} else {
+				updatedFileList = append(updatedFileList, jiraFile)
+			}
+		}
+		updatedMap[k] = updatedFileList
+	}
+
+	attachmentList = updatedMap
+}
+
+func (attachmentList *attachmentMigrationList) Migrate(token string) error {
+
+	// for every CH File in attachmentList, download from Jira and uppload to CH
+	for _, jiraFile := range attachmentList.CHFiles {
+		file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
+		if err != nil {
+			return err
+		}
+		clubHouseFile, err := CHCreateFile(file, jiraFile.Name, jiraFile.ExternalID, token)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("File with Jira ID %v successfully migrated to Clubhouse with ID %v\n", clubHouseFile.ExternalID, clubHouseFile.ID)
+	}
+
+	return nil
 }
 
 // CreateComment takes the JiraItem's comment data and returns a CreateComment

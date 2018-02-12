@@ -104,7 +104,7 @@ To get your Clubhouse workflow state IDs, you can look at `curl -X GET \
 To see what the data will look like (as JSON).
 
 ```bash
-go run *.go export --in SearchRequest.xml --map userMap.json --project userProject.json --out file.json
+go run *.go export --in SearchRequest.xml --map userMap.json --project projectMap.json --out file.json
 ```
 
 
@@ -119,12 +119,23 @@ go run *.go export --in SearchRequest.xml --map userMap.json --project userProje
 To actually import to Clubhouse. Use `--test` to parse input files and 'preview' what the effects will be without uploading to Clubhouse.  Good for checking that everything works before pulling the trigger.
 
 ```bash
-go run *.go import --in SearchRequest.xml --map userMap.json --project userProject.json --token $CLUBHOUSE_API_TOKEN
+go run *.go import --in SearchRequest.xml --map userMap.json --project projectMap.json --token $CLUBHOUSE_API_TOKEN
 ```
 
 ### Params
  * `--in` The xml file you want to read from
  * `--map` The user maps
  * `--project` The project maps
+ * `--token` The api token for your Clubhouse instance
+ * `--test` Test mode: run the program, but do not upload to Clubhouse.
+
+ ## ImportFiles
+
+ ```bash
+ go run *.go importFiles --in SearchRequest.xml --token $CLUBHOUSE_API_TOKEN
+```
+
+### Params
+ * `--in` The xml file you want to read from
  * `--token` The api token for your Clubhouse instance
  * `--test` Test mode: run the program, but do not upload to Clubhouse.
