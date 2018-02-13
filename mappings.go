@@ -25,7 +25,7 @@ func MapUser(userMaps []userMap, jiraUsername string) (CHID string, err error) {
 }
 
 // MapProject tries to map a given jira project with a clubhouse project
-func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int, err error) {
+func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int64, err error) {
 	//projectID := GetProjectInfo(projectMaps, jiraProjectKey)
 
 	for _, u := range projectMaps {
@@ -41,6 +41,33 @@ func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID in
 	}
 
 	return CHProjectID, err
+}
+
+// MapStory tries to map a given jira story with a clubhouse story
+func MapStory(projectMaps []projectMap, jiraProjectKey string, jiraStoryKey string, token string) (CHStorySlim, error) {
+
+	// get CHProjectID in some way
+	clubHouseProjectID, err := MapProject(projectMaps, jiraProjectKey)
+	if err != nil {
+		return CHStorySlim{}, err
+	}
+
+	// fetch existing stories
+	clubHouseStoryList, err := CHReadStoryList(clubHouseProjectID, token)
+	if err != nil {
+		return CHStorySlim{}, err
+	}
+	// loop through stories
+
+	for _, clubHouseStorySlim := range clubHouseStoryList {
+		if clubHouseStorySlim.ExternalID == jiraStoryKey {
+			return clubHouseStorySlim, nil
+		}
+	}
+
+	return CHStorySlim{}, fmt.Errorf("Could not find corresponding story for Jira story with key %v in Clubhouse for the project %v", jiraStoryKey, jiraProjectKey)
+	// get ID from map
+
 }
 
 func GenerateMapForExistingCHFiles(existingCHFiles []CHFile) map[string]int64 {
@@ -61,4 +88,12 @@ func GenerateMapForExistingCHStories(existingCHStories []CHStorySlim) map[string
 	}
 	return x
 
+}
+
+func GenerateMapForAttachmentMigrationList(attachments []attachmentGroup) map[string][]CHFile {
+	x := make(map[string][]CHFile)
+	for _, attachmentGroup := range attachments {
+		x[attachmentGroup.JiraStoryKey] = attachmentGroup.CHFiles
+	}
+	return x
 }

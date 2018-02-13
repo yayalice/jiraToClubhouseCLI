@@ -133,6 +133,11 @@ func main() {
 					return nil
 				}
 
+				if projectMapFile == "" {
+					fmt.Println("A project map JSON file must be specified.")
+					return nil
+				}
+
 				userMaps, err := GetUserMap(mapFile)
 				if err != nil {
 					fmt.Println(err)
@@ -167,6 +172,10 @@ func main() {
 					Usage: "The JSON file containing user mappings",
 				},
 				cli.StringFlag{
+					Name:  "project, p",
+					Usage: "The JSON file containing project mappings",
+				},
+				cli.StringFlag{
 					Name:  "token, t",
 					Usage: "Your API token",
 				},
@@ -179,6 +188,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				jiraFile := c.String("in")
 				mapFile := c.String("map")
+				projectMapFile := c.String("project")
 				token := c.String("token")
 				testMode := c.Bool("test")
 
@@ -189,6 +199,11 @@ func main() {
 
 				if mapFile == "" {
 					fmt.Println("A user map JSON file must be specified.")
+					return nil
+				}
+
+				if projectMapFile == "" {
+					fmt.Println("A project map JSON file must be specified.")
 					return nil
 				}
 
@@ -203,7 +218,13 @@ func main() {
 					return err
 				}
 
-				err = MigrateFiles(jiraFile, userMaps, token, testMode)
+				projectMaps, err := GetProjectMap(projectMapFile)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
+
+				err = MigrateFiles(jiraFile, userMaps, projectMaps, token, testMode)
 				if err != nil {
 					fmt.Println(err)
 					return err

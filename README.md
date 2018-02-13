@@ -132,10 +132,12 @@ go run *.go import --in SearchRequest.xml --map userMap.json --project projectMa
  ## ImportFiles
 
  ```bash
- go run *.go importFiles --in SearchRequest.xml --token $CLUBHOUSE_API_TOKEN
+ go run *.go importFiles --in SearchRequest.xml --map userMap.json --project projectMap.json --token $CLUBHOUSE_API_TOKEN
 ```
 
 ### Params
  * `--in` The xml file you want to read from
+ * `--map` The user maps
+ * `--project` The project maps
  * `--token` The api token for your Clubhouse instance
  * `--test` Test mode: run the program, but do not upload to Clubhouse.

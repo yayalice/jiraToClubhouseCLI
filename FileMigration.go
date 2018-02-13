@@ -2,8 +2,8 @@ package main
 
 import "fmt"
 
-// UploadToClubhouse will import the XML, and upload it to Clubhouse
-func MigrateFiles(jiraFile string, userMaps []userMap, token string, testMode bool) error {
+// MigrateFiles will import the XML, upload files to Clubhouse and link them to the appropriate story
+func MigrateFiles(jiraFile string, userMaps []userMap, projectMaps []projectMap, token string, testMode bool) error {
 
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
@@ -16,13 +16,15 @@ func MigrateFiles(jiraFile string, userMaps []userMap, token string, testMode bo
 
 	if !testMode {
 		fmt.Println("Migrating files to Clubhouse...")
-		err = jiraFileList.Migrate(token)
+		err = jiraFileList.Migrate(projectMaps, token)
 		if err != nil {
 			return err
 		}
 	} else {
-		for _, CHFile := range jiraFileList.CHFiles {
-			fmt.Printf("Found file with Jira ID %v and name %v to be uploaded to CH\n", CHFile.ExternalID, CHFile.Name)
+		for _, group := range jiraFileList.AttachmentGroups {
+			for _, CHFile := range group.CHFiles {
+				fmt.Printf("Found file File with Jira ID %v and name %v to be uploaded to CH\n", CHFile.ExternalID, CHFile.Name)
+			}
 		}
 	}
 

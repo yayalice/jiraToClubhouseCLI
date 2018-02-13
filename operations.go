@@ -75,16 +75,21 @@ func (je *JiraExport) GetFileListFromXMLFile(userMaps []userMap) (attachmentList
 		}
 	}
 
-	x := make(map[string][]CHFile)
 	for _, item := range stories {
-		var clubHouseFiles []CHFile
-		for _, attachment := range item.Attachments {
-			clubHouseFiles = append(clubHouseFiles, attachment.CreateCHFile(userMaps))
+		if len(item.Attachments) > 0 {
+			var attachmentGrp attachmentGroup
+			var clubHouseFiles []CHFile
+			attachmentGrp.JiraStoryKey = item.Key
+			attachmentGrp.JiraProjectKey = item.Project.Key
+			for _, attachment := range item.Attachments {
+				clubHouseFiles = append(clubHouseFiles, attachment.CreateCHFile(userMaps))
+			}
+			attachmentGrp.CHFiles = clubHouseFiles
+			attachmentList.AttachmentGroups = append(attachmentList.AttachmentGroups, attachmentGrp)
 		}
-		x[item.Key] = clubHouseFiles
 	}
 
-	return x
+	return attachmentList
 }
 
 // CreateEpic returns a CreateEpic from the JiraItem
@@ -230,39 +235,78 @@ func (attachmentList *attachmentMigrationList) RemoveDoubles(CHExistingFilesList
 
 	CHExistingFilesMap := GenerateMapForExistingCHFiles(CHExistingFilesList)
 
-	var updatedMap map[string][]CHFile
+	var updatedAttachmentGroupList []attachmentGroup
 
-	for k, v := range attachmentList {
+	for _, attachmentGrp := range attachmentList.AttachmentGroups {
+		var updatedAttachmentGroup attachmentGroup
+		updatedAttachmentGroup.JiraStoryKey = attachmentGrp.JiraStoryKey
+		updatedAttachmentGroup.JiraProjectKey = attachmentGrp.JiraProjectKey
 		var updatedFileList []CHFile
-		for _, jiraFile := range v {
+		for _, jiraFile := range attachmentGrp.CHFiles {
 			if val, ok := CHExistingFilesMap[jiraFile.ExternalID]; ok {
-				fmt.Printf("The file with the Jira key: %v and belonging to the story: %v already exists in Clubhouse with the ID: %v\n", jiraFile.ExternalID, k, val)
+				fmt.Printf("The file with the Jira project key: %v and belonging to the story: %v already exists in Clubhouse with the ID: %v\n", attachmentGrp.JiraProjectKey, attachmentGrp.JiraStoryKey, val)
 			} else {
 				updatedFileList = append(updatedFileList, jiraFile)
 			}
 		}
-		updatedMap[k] = updatedFileList
+		updatedAttachmentGroup.CHFiles = updatedFileList
+		updatedAttachmentGroupList = append(updatedAttachmentGroupList, updatedAttachmentGroup)
 	}
 
-	attachmentList = updatedMap
+	attachmentList.AttachmentGroups = updatedAttachmentGroupList
 }
 
-func (attachmentList *attachmentMigrationList) Migrate(token string) error {
+func (attachmentList *attachmentMigrationList) Migrate(projectMaps []projectMap, token string) error {
 
 	// for every CH File in attachmentList, download from Jira and uppload to CH
-	for _, jiraFile := range attachmentList.CHFiles {
-		file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
-		if err != nil {
-			return err
+	for _, attachmentGrp := range attachmentList.AttachmentGroups {
+
+		// no need to bother if the attachemnt group is empty
+		if len(attachmentGrp.CHFiles) > 0 {
+			// We check if the story exists in CH. We do not want to upload files that would become orphans
+			clubHouseStorySlim, err := MapStory(projectMaps, attachmentGrp.JiraProjectKey, attachmentGrp.JiraStoryKey, token)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			var fileIDs []int64
+			for _, jiraFile := range attachmentGrp.CHFiles {
+
+				// we check if this file with is already linked in CH to this story. We want to avoid creating a duplicate
+				// if stringInSlice(jiraFile.ExternalID, )
+
+				file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
+				if err != nil {
+					return err
+				}
+				clubHouseFile, err := CHCreateFile(file, jiraFile.Name, jiraFile.ExternalID, token)
+				if err != nil {
+					return err
+				}
+				fileIDs = append(fileIDs, clubHouseFile.ID)
+
+				fmt.Printf("File with Jira ID %v successfully migrated to Clubhouse with ID %v\n", clubHouseFile.ExternalID, clubHouseFile.ID)
+			}
+
+			clubHouseStory, err := CHUpdateStory(clubHouseStorySlim, fileIDs, token)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Updated Story %v with files [%v]\n", clubHouseStorySlim.ID, clubHouseStory.FileIDs)
 		}
-		clubHouseFile, err := CHCreateFile(file, jiraFile.Name, jiraFile.ExternalID, token)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("File with Jira ID %v successfully migrated to Clubhouse with ID %v\n", clubHouseFile.ExternalID, clubHouseFile.ID)
 	}
 
 	return nil
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateComment takes the JiraItem's comment data and returns a CreateComment

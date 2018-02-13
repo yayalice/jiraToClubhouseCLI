@@ -8,7 +8,7 @@ type userMap struct {
 
 type projectMap struct {
 	JiraProjectKey string
-	CHProjectID    int
+	CHProjectID    int64
 }
 
 type attachmentMap struct {
@@ -18,4 +18,12 @@ type attachmentMap struct {
 	CHStoryID         int64
 }
 
-type attachmentMigrationList map[string][]CHFile
+type attachmentGroup struct {
+	JiraStoryKey   string
+	JiraProjectKey string
+	CHFiles        []CHFile
+}
+
+type attachmentMigrationList struct {
+	AttachmentGroups []attachmentGroup
+}

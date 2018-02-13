@@ -36,6 +36,7 @@ type CHStory struct {
 	EpicID      int64       `json:"epic_id,omitempty"`
 	EpicLink    string
 	ExternalID  string    `json:"external_id"`
+	FileIDs     []int64   `json:"file_ids"`
 	Labels      []CHLabel `json:"labels"`
 	Name        string    `json:"name"`
 	ProjectID   int64     `json:"project_id"`
