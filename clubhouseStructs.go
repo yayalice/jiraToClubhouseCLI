@@ -48,6 +48,7 @@ type CHStory struct {
 	RequestedBy   string   `json:"requested_by_id"`
 }
 
+// CHStorySlim is the object fetched from the API to get a list of stories
 type CHStorySlim struct {
 	ID         int64   `json:"id"`
 	ExternalID string  `json:"external_id"`

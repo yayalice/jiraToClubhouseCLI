@@ -1,29 +1,26 @@
 package main
 
-type userMap struct {
+// UserMap is used to store association between Jira user and CH user
+type UserMap struct {
 	JiraUsername string
 	CHID         string
 	Default      bool
 }
 
-type projectMap struct {
+// ProjectMap is used to store association between Jira project and CH project
+type ProjectMap struct {
 	JiraProjectKey string
 	CHProjectID    int64
 }
 
-type attachmentMap struct {
-	JiraAttachmentKey string
-	CHAttachmentID    int64
-	JiraStoryKey      string
-	CHStoryID         int64
-}
-
-type attachmentGroup struct {
+// AttachmentGroup contains the list of files associated with a story
+type AttachmentGroup struct {
 	JiraStoryKey   string
 	JiraProjectKey string
 	CHFiles        []CHFile
 }
 
-type attachmentMigrationList struct {
-	AttachmentGroups []attachmentGroup
+// AttachmentMigrationList is a collection of list of files associated with each story
+type AttachmentMigrationList struct {
+	AttachmentGroups []AttachmentGroup
 }

@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 // MigrateFiles will import the XML, upload files to Clubhouse and link them to the appropriate story
-func MigrateFiles(jiraFile string, userMaps []userMap, projectMaps []projectMap, token string, testMode bool) error {
+func MigrateFiles(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap, token string, testMode bool) error {
 
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// CHReadStoryList is a db-operation in CH to get a list of all the stories for a given project
 func CHReadStoryList(CHProjectID int64, token string) ([]CHStorySlim, error) {
 
 	client := &http.Client{}
@@ -40,6 +41,7 @@ func CHReadStoryList(CHProjectID int64, token string) ([]CHStorySlim, error) {
 
 }
 
+// CHUpdateStory is a db-operation in CH to update which files should be associated with a given story
 func CHUpdateStory(clubHouseStorySlim CHStorySlim, fileIDs []int64, token string) (CHStory, error) {
 
 	client := &http.Client{}

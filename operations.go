@@ -10,7 +10,7 @@ import (
 )
 
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []projectMap) CHData {
+func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []ProjectMap) CHData {
 	epics := []JiraItem{}
 	tasks := []JiraItem{}
 	stories := []JiraItem{}
@@ -59,7 +59,8 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []userMap, projectMaps []proj
 	return CHData{Epics: chEpics, Stories: chStories}
 }
 
-func (je *JiraExport) GetFileListFromXMLFile(userMaps []userMap) (attachmentList attachmentMigrationList) {
+// GetFileListFromXMLFile will parse the xml-file and fetch all information about attachments and which project and story they belong to
+func (je *JiraExport) GetFileListFromXMLFile(userMaps []UserMap) (attachmentList AttachmentMigrationList) {
 
 	stories := []JiraItem{}
 
@@ -77,7 +78,7 @@ func (je *JiraExport) GetFileListFromXMLFile(userMaps []userMap) (attachmentList
 
 	for _, item := range stories {
 		if len(item.Attachments) > 0 {
-			var attachmentGrp attachmentGroup
+			var attachmentGrp AttachmentGroup
 			var clubHouseFiles []CHFile
 			attachmentGrp.JiraStoryKey = item.Key
 			attachmentGrp.JiraProjectKey = item.Project.Key
@@ -105,7 +106,7 @@ func (item *JiraItem) CreateTask() CHTask {
 }
 
 // CreateStory re from the JiraItem
-func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) CHStory {
+func (item *JiraItem) CreateStory(userMaps []UserMap, projectMaps []ProjectMap) CHStory {
 	// fmt.Println("assignee: ", item.Assignee, "reporter: ", item.Reporter)
 	//{}
 
@@ -217,7 +218,8 @@ func (item *JiraItem) CreateStory(userMaps []userMap, projectMaps []projectMap) 
 	}
 }
 
-func (attachment *JiraAttachment) CreateCHFile(userMaps []userMap) CHFile {
+// CreateCHFile will use data from Jira to create a CHFile
+func (attachment *JiraAttachment) CreateCHFile(userMaps []UserMap) CHFile {
 	author, err := MapUser(userMaps, attachment.Author)
 	if err != nil {
 		return CHFile{}
@@ -231,14 +233,15 @@ func (attachment *JiraAttachment) CreateCHFile(userMaps []userMap) CHFile {
 	}
 }
 
-func (attachmentList *attachmentMigrationList) RemoveDoubles(CHExistingFilesList []CHFile) {
+// RemoveDoubles will remove any file that is already uploaded to Clubhouse and associated to the same project and story
+func (attachmentList *AttachmentMigrationList) RemoveDoubles(CHExistingFilesList []CHFile) {
 
 	CHExistingFilesMap := GenerateMapForExistingCHFiles(CHExistingFilesList)
 
-	var updatedAttachmentGroupList []attachmentGroup
+	var updatedAttachmentGroupList []AttachmentGroup
 
 	for _, attachmentGrp := range attachmentList.AttachmentGroups {
-		var updatedAttachmentGroup attachmentGroup
+		var updatedAttachmentGroup AttachmentGroup
 		updatedAttachmentGroup.JiraStoryKey = attachmentGrp.JiraStoryKey
 		updatedAttachmentGroup.JiraProjectKey = attachmentGrp.JiraProjectKey
 		var updatedFileList []CHFile
@@ -256,7 +259,8 @@ func (attachmentList *attachmentMigrationList) RemoveDoubles(CHExistingFilesList
 	attachmentList.AttachmentGroups = updatedAttachmentGroupList
 }
 
-func (attachmentList *attachmentMigrationList) Migrate(projectMaps []projectMap, token string) error {
+// Migrate will dowload from Jira and upload to CH
+func (attachmentList *AttachmentMigrationList) Migrate(projectMaps []ProjectMap, token string) error {
 
 	// for every CH File in attachmentList, download from Jira and uppload to CH
 	for _, attachmentGrp := range attachmentList.AttachmentGroups {
@@ -272,10 +276,6 @@ func (attachmentList *attachmentMigrationList) Migrate(projectMaps []projectMap,
 
 			var fileIDs []int64
 			for _, jiraFile := range attachmentGrp.CHFiles {
-
-				// we check if this file with is already linked in CH to this story. We want to avoid creating a duplicate
-				// if stringInSlice(jiraFile.ExternalID, )
-
 				file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
 				if err != nil {
 					return err
@@ -310,7 +310,7 @@ func stringInSlice(a string, list []string) bool {
 }
 
 // CreateComment takes the JiraItem's comment data and returns a CreateComment
-func (comment *JiraComment) CreateComment(userMaps []userMap) CHComment {
+func (comment *JiraComment) CreateComment(userMaps []UserMap) CHComment {
 	commentText := sanitize.HTML(comment.Comment)
 	if commentText == "\n" {
 		commentText = "(empty)"

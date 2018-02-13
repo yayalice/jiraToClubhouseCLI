@@ -65,6 +65,7 @@ type JiraComment struct {
 	ID              string `xml:"id,attr"`
 }
 
+// JiraProject is a project from the imported XML
 type JiraProject struct {
 	Key string `xml:"key,attr"`
 }

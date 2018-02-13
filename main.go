@@ -238,7 +238,7 @@ func main() {
 }
 
 // UploadToClubhouse will import the XML, and upload it to Clubhouse
-func UploadToClubhouse(jiraFile string, userMaps []userMap, projectMaps []projectMap, token string, testMode bool) error {
+func UploadToClubhouse(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap, token string, testMode bool) error {
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
 		return err

@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 // MapUser tries to map a given jira user with a clubhouse user
-func MapUser(userMaps []userMap, jiraUsername string) (CHID string, err error) {
+func MapUser(userMaps []UserMap, jiraUsername string) (CHID string, err error) {
 
 	for _, u := range userMaps {
 		if u.JiraUsername == jiraUsername {
@@ -25,7 +25,7 @@ func MapUser(userMaps []userMap, jiraUsername string) (CHID string, err error) {
 }
 
 // MapProject tries to map a given jira project with a clubhouse project
-func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID int64, err error) {
+func MapProject(projectMaps []ProjectMap, jiraProjectKey string) (CHProjectID int64, err error) {
 	//projectID := GetProjectInfo(projectMaps, jiraProjectKey)
 
 	for _, u := range projectMaps {
@@ -44,7 +44,7 @@ func MapProject(projectMaps []projectMap, jiraProjectKey string) (CHProjectID in
 }
 
 // MapStory tries to map a given jira story with a clubhouse story
-func MapStory(projectMaps []projectMap, jiraProjectKey string, jiraStoryKey string, token string) (CHStorySlim, error) {
+func MapStory(projectMaps []ProjectMap, jiraProjectKey string, jiraStoryKey string, token string) (CHStorySlim, error) {
 
 	// get CHProjectID in some way
 	clubHouseProjectID, err := MapProject(projectMaps, jiraProjectKey)
@@ -70,6 +70,7 @@ func MapStory(projectMaps []projectMap, jiraProjectKey string, jiraStoryKey stri
 
 }
 
+// GenerateMapForExistingCHFiles generates a mapping as map[jiraFileKey]clubhouseFileID
 func GenerateMapForExistingCHFiles(existingCHFiles []CHFile) map[string]int64 {
 
 	x := make(map[string]int64)
@@ -80,6 +81,7 @@ func GenerateMapForExistingCHFiles(existingCHFiles []CHFile) map[string]int64 {
 
 }
 
+// GenerateMapForExistingCHStories generates a mapping as map[jiraStoryKey]clubhouseStoryID
 func GenerateMapForExistingCHStories(existingCHStories []CHStorySlim) map[string]int64 {
 
 	x := make(map[string]int64)
@@ -90,7 +92,8 @@ func GenerateMapForExistingCHStories(existingCHStories []CHStorySlim) map[string
 
 }
 
-func GenerateMapForAttachmentMigrationList(attachments []attachmentGroup) map[string][]CHFile {
+// GenerateMapForAttachmentMigrationList generates a mapping as map[jiraStoryKey]clubhouseFiles
+func GenerateMapForAttachmentMigrationList(attachments []AttachmentGroup) map[string][]CHFile {
 	x := make(map[string][]CHFile)
 	for _, attachmentGroup := range attachments {
 		x[attachmentGroup.JiraStoryKey] = attachmentGroup.CHFiles

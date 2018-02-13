@@ -7,52 +7,54 @@ import (
 	"os"
 )
 
-func GetUserMap(mapFile string) ([]userMap, error) {
+// GetUserMap parses the userMap.json file and returns the content
+func GetUserMap(mapFile string) ([]UserMap, error) {
 	jsonFile, err := os.Open(mapFile)
 	if err != nil {
-		return []userMap{}, err
+		return []UserMap{}, err
 	}
 
 	defer jsonFile.Close()
 	JSONData, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
-		return []userMap{}, err
+		return []UserMap{}, err
 	}
 
 	// userMaps := []userMap
-	var userMaps []userMap
+	var userMaps []UserMap
 	err = json.Unmarshal(JSONData, &userMaps)
 	if err != nil {
-		return []userMap{}, err
+		return []UserMap{}, err
 	}
 
 	return userMaps, nil
 }
 
-func GetProjectMap(projectMapFile string) ([]projectMap, error) {
+// GetProjectMap parses the projectMap.json file and returns the content
+func GetProjectMap(projectMapFile string) ([]ProjectMap, error) {
 	jsonFile, err := os.Open(projectMapFile)
 	if err != nil {
-		return []projectMap{}, err
+		return []ProjectMap{}, err
 	}
 
 	defer jsonFile.Close()
 	JSONData, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
-		return []projectMap{}, err
+		return []ProjectMap{}, err
 	}
 
 	// userMaps := []userMap
-	var projectMaps []projectMap
+	var projectMaps []ProjectMap
 	err = json.Unmarshal(JSONData, &projectMaps)
 	if err != nil {
-		return []projectMap{}, err
+		return []ProjectMap{}, err
 	}
 
 	return projectMaps, nil
 }
 
 // ExportToJSON will import the XML and then export the data to the file specified.
-func ExportToJSON(jiraFile string, userMaps []userMap, projectMaps []projectMap, exportFile string) error {
+func ExportToJSON(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap, exportFile string) error {
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
 		return err
