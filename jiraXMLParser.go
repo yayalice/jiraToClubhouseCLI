@@ -8,7 +8,7 @@ import (
 )
 
 // GetUserMap parses the userMap.json file and returns the content
-func GetUserMap(mapFile string) ([]UserMap, error) {
+func GetUserMap(mapFile string, token string) ([]UserMap, error) {
 	jsonFile, err := os.Open(mapFile)
 	if err != nil {
 		return []UserMap{}, err
@@ -23,6 +23,12 @@ func GetUserMap(mapFile string) ([]UserMap, error) {
 	// userMaps := []userMap
 	var userMaps []UserMap
 	err = json.Unmarshal(JSONData, &userMaps)
+	if err != nil {
+		return []UserMap{}, err
+	}
+
+	// We fetch the user ID from Clubhouse as it regularly changes
+	userMaps, err = CHReadMembers(userMaps, token)
 	if err != nil {
 		return []UserMap{}, err
 	}

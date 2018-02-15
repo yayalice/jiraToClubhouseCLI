@@ -15,7 +15,7 @@ func MigrateFiles(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap,
 	jiraFileList.RemoveDoubles(existingCHFiles)
 
 	if !testMode {
-		fmt.Println("Migrating files to Clubhouse...")
+		//fmt.Println("Migrating files to Clubhouse...")
 		err = jiraFileList.Migrate(projectMaps, token)
 		if err != nil {
 			return err

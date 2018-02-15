@@ -3,6 +3,7 @@ package main
 // UserMap is used to store association between Jira user and CH user
 type UserMap struct {
 	JiraUsername string
+	CHName       string
 	CHID         string
 	Default      bool
 }

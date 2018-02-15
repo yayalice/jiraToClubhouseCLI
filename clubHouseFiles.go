@@ -11,8 +11,8 @@ import (
 	"strconv"
 )
 
-// CHCreateFile is a ClubHouse CRUD-operation
-func CHCreateFile(file []byte, fileName string, externalID string, token string) (CHFile, error) {
+// CHCreateFile is a ClubHouse CRUD-operation. It will both create the file and then update its metadata with the content of jiraFile
+func CHCreateFile(file []byte, jiraFile CHFile, token string) (CHGETFile, error) {
 
 	client := &http.Client{}
 
@@ -20,12 +20,12 @@ func CHCreateFile(file []byte, fileName string, externalID string, token string)
 	// Prepare a form that you will submit to that URL.
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	fw, err := w.CreateFormFile("file", fileName)
+	fw, err := w.CreateFormFile("file", jiraFile.Name)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	if _, err = io.Copy(fw, fr); err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 
 	// Don't forget to close the multipart writer.
@@ -35,7 +35,7 @@ func CHCreateFile(file []byte, fileName string, externalID string, token string)
 	// Now that you have a form, you can submit it to your handler.
 	req, err := http.NewRequest("POST", getURL("files", token), &b)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	// Don't forget to set the content type, this will contain the boundary.
 	req.Header.Set("Content-Type", w.FormDataContentType())
@@ -43,7 +43,7 @@ func CHCreateFile(file []byte, fileName string, externalID string, token string)
 	// Submit the request
 	res, err := client.Do(req)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	defer res.Body.Close()
 
@@ -55,29 +55,26 @@ func CHCreateFile(file []byte, fileName string, externalID string, token string)
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 
-	newAttachments := []CHFile{}
+	newAttachments := []CHGETFile{}
 	json.Unmarshal(body, &newAttachments)
 
-	clubHouseID := newAttachments[0].ID
-	clubHouseFile := CHFile{ExternalID: externalID, ID: clubHouseID}
+	var createdFileID int64
+	createdFileID = newAttachments[0].ID
 
-	// There is no need to update the file with a new external_id if the value is empty
-	if externalID != "" {
-		clubHouseFile, err = CHUpdateFile(clubHouseFile, token)
-		if err != nil {
-			return clubHouseFile, err
-		}
+	updatedFile, err := CHUpdateFile(createdFileID, jiraFile, token)
+	if err != nil {
+		return CHGETFile{}, err
 	}
 
-	return clubHouseFile, nil
+	return updatedFile, nil
 
 }
 
 // CHReadFile is a ClubHouse CRUD-operation
-func CHReadFile(clubHouseFileID int64, token string) (CHFile, error) {
+func CHReadFile(clubHouseFileID int64, token string) (CHGETFile, error) {
 
 	client := &http.Client{}
 
@@ -85,13 +82,13 @@ func CHReadFile(clubHouseFileID int64, token string) (CHFile, error) {
 	var chURL = getURL(urlType, token)
 	req, err := http.NewRequest("GET", chURL, nil)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	defer res.Body.Close()
 
@@ -102,10 +99,10 @@ func CHReadFile(clubHouseFileID int64, token string) (CHFile, error) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 
-	var clubHouseFile CHFile
+	var clubHouseFile CHGETFile
 	json.Unmarshal(body, &clubHouseFile)
 
 	return clubHouseFile, nil
@@ -113,7 +110,7 @@ func CHReadFile(clubHouseFileID int64, token string) (CHFile, error) {
 }
 
 // CHReadFileList is a ClubHouse CRUD-operation
-func CHReadFileList(token string) ([]CHFile, error) {
+func CHReadFileList(token string) ([]CHGETFile, error) {
 
 	// CHAttachments := make(map[string]int)
 	client := &http.Client{}
@@ -134,30 +131,30 @@ func CHReadFileList(token string) ([]CHFile, error) {
 		fmt.Println("response Headers:", resp.Header)
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
-	files := []CHFile{}
+	files := []CHGETFile{}
 	json.Unmarshal(body, &files)
 
 	return files, nil
 }
 
 // CHUpdateFile is a ClubHouse CRUD-operation
-func CHUpdateFile(clubHouseFile CHFile, token string) (CHFile, error) {
+func CHUpdateFile(clubhouseFileID int64, clubHouseFile CHFile, token string) (CHGETFile, error) {
 
 	client := &http.Client{}
 
-	var urlType = "files/" + strconv.FormatInt(clubHouseFile.ID, 10)
+	var urlType = "files/" + strconv.FormatInt(clubhouseFileID, 10)
 	var chURL = getURL(urlType, token)
-	var jsonString = []byte(`{"external_id": "` + clubHouseFile.ExternalID + `"}`)
+	jsonString, err := json.Marshal(clubHouseFile)
 	b := bytes.NewBuffer(jsonString)
 	req, err := http.NewRequest("PUT", chURL, b)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 	defer res.Body.Close()
 
@@ -168,10 +165,10 @@ func CHUpdateFile(clubHouseFile CHFile, token string) (CHFile, error) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return CHFile{}, err
+		return CHGETFile{}, err
 	}
 
-	var updatedClubHouseFile CHFile
+	var updatedClubHouseFile CHGETFile
 	json.Unmarshal(body, &updatedClubHouseFile)
 
 	return updatedClubHouseFile, nil

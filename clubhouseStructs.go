@@ -8,12 +8,21 @@ type CHEpic struct {
 	Description string    `json:"description"`
 	ExternalID  string    `json:"external_id"`
 	Name        string    `json:"name"`
-	ID          int64     `json:"id"`
+	id          int64     `json:"id"`
 }
 
-// CHFile is used in ClubHouseCreateStory for attachments
+// CHFile is used in ClubHouseCreateStory for creating attachments
 type CHFile struct {
-	Author     string    `json:"author_id"`
+	Uploader   string    `json:"uploader_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExternalID string    `json:"external_id"`
+	Name       string    `json:"name"`
+	uploaded   bool
+}
+
+// CHFile is used to fetch attachments
+type CHGETFile struct {
+	Uploader   string    `json:"uploader_id"`
 	CreatedAt  time.Time `json:"created_at"`
 	ExternalID string    `json:"external_id"`
 	Name       string    `json:"name"`
@@ -34,7 +43,7 @@ type CHStory struct {
 	Description string      `json:"description"`
 	Estimate    int64       `json:"estimate"`
 	EpicID      int64       `json:"epic_id,omitempty"`
-	EpicLink    string
+	epicLink    string
 	ExternalID  string    `json:"external_id"`
 	FileIDs     []int64   `json:"file_ids"`
 	Labels      []CHLabel `json:"labels"`
@@ -46,6 +55,28 @@ type CHStory struct {
 	OwnerIDs      []string `json:"owner_ids"`
 	WorkflowState int64    `json:"workflow_state_id"`
 	RequestedBy   string   `json:"requested_by_id"`
+}
+
+type CHGETStory struct {
+	Comments      []CHComment `json:"comments"`
+	CreatedAt     time.Time   `json:"created_at"`
+	Description   string      `json:"description"`
+	EpicID        int64       `json:"epic_id,omitempty"`
+	Estimate      int64       `json:"estimate"`
+	ExternalID    string      `json:"external_id"`
+	Files         []CHGETFile `json:"files"`
+	Labels        []CHLabel   `json:"labels"`
+	Name          string      `json:"name"`
+	OwnerIDs      []string    `json:"owner_ids"`
+	ProjectID     int64       `json:"project_id"`
+	RequestedBy   string      `json:"requested_by_id"`
+	StoryType     string      `json:"story_type"`
+	Tasks         []CHTask    `json:"tasks"`
+	WorkflowState int64       `json:"workflow_state_id"`
+}
+
+type CHStoryForUpdate struct {
+	FileIDs []int64 `json:"file_ids"`
 }
 
 // CHStorySlim is the object fetched from the API to get a list of stories
@@ -66,11 +97,22 @@ type CHTask struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Description string    `json:"description"`
 	Complete    bool      `json:"complete"`
-	Parent      string
+	parent      string
 }
 
 // CHData is a container holding the data for submission of writing to a JSON file.
 type CHData struct {
 	Epics   []CHEpic  `json:"epics"`
 	Stories []CHStory `json:"stories"`
+}
+
+// CHMember is a container holding the data for fetching user information from CH
+type CHMember struct {
+	ID      string    `json:"id"`
+	Profile CHProfile `json:"profile"`
+}
+
+// CHProfile is a sub-part of the CHMember-container holding the data for fetching user information from CH
+type CHProfile struct {
+	Name string `json:"name"`
 }

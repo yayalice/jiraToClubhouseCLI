@@ -71,7 +71,7 @@ func MapStory(projectMaps []ProjectMap, jiraProjectKey string, jiraStoryKey stri
 }
 
 // GenerateMapForExistingCHFiles generates a mapping as map[jiraFileKey]clubhouseFileID
-func GenerateMapForExistingCHFiles(existingCHFiles []CHFile) map[string]int64 {
+func GenerateMapForExistingCHFiles(existingCHFiles []CHGETFile) map[string]int64 {
 
 	x := make(map[string]int64)
 	for _, clubHouseFile := range existingCHFiles {

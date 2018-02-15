@@ -53,7 +53,7 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []Proj
 	}
 
 	for _, task := range chTasks {
-		chStories[storyMap[task.Parent]].Tasks = append(chStories[storyMap[task.Parent]].Tasks, task)
+		chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
 	}
 
 	return CHData{Epics: chEpics, Stories: chStories}
@@ -102,7 +102,7 @@ func (item *JiraItem) CreateEpic() CHEpic {
 
 // CreateTask returns a task if the item is a Jira Sub-task
 func (item *JiraItem) CreateTask() CHTask {
-	return CHTask{Description: sanitize.HTML(item.Summary), Parent: item.Parent, Complete: false}
+	return CHTask{Description: sanitize.HTML(item.Summary), parent: item.Parent, Complete: false}
 }
 
 // CreateStory re from the JiraItem
@@ -199,18 +199,19 @@ func (item *JiraItem) CreateStory(userMaps []UserMap, projectMaps []ProjectMap) 
 	requestor, err := MapUser(userMaps, item.Reporter.Username)
 	// _, requestor := GetUserInfo(userMaps, item.Reporter.Username)
 
-	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint())
+	fmt.Printf("%s: JIRA Assignee: %s | Project: %d | Status: %s | Description: %s | Estimate: %d | Epic Link: %s | SprintTag: %s | Requestor: %v\n\n", item.Key, item.Assignee.Username, projectID, item.Status, item.GetDescription(), item.GetEstimate(), item.GetEpicLink(), item.GetSprint(), requestor)
 
 	return CHStory{
 		Comments:      comments,
 		CreatedAt:     parseJiraTimeStamp(item.CreatedAtString),
 		Description:   item.GetDescription(),
 		ExternalID:    item.Key,
+		FileIDs:       make([]int64, 0),
 		Labels:        labels,
 		Name:          sanitize.HTML(item.Summary),
 		ProjectID:     int64(projectID),
 		StoryType:     item.GetClubhouseType(),
-		EpicLink:      item.GetEpicLink(),
+		epicLink:      item.GetEpicLink(),
 		WorkflowState: state,
 		OwnerIDs:      owners,
 		RequestedBy:   requestor,
@@ -226,37 +227,28 @@ func (attachment *JiraAttachment) CreateCHFile(userMaps []UserMap) CHFile {
 	}
 	fmt.Printf("Jira File information: Author: %v, CreatedAt: %v, ExternalID: %v, Name: %v\n", author, parseJiraTimeStamp(attachment.CreatedAtString), attachment.ID, attachment.Name)
 	return CHFile{
-		Author:     author,
+		Uploader:   author,
 		CreatedAt:  parseJiraTimeStamp(attachment.CreatedAtString),
 		ExternalID: attachment.ID,
 		Name:       attachment.Name,
 	}
 }
 
-// RemoveDoubles will remove any file that is already uploaded to Clubhouse and associated to the same project and story
-func (attachmentList *AttachmentMigrationList) RemoveDoubles(CHExistingFilesList []CHFile) {
+// RemoveDoubles will flag any file that is already uploaded to Clubhouse and associated to the same project and story
+func (attachmentList *AttachmentMigrationList) RemoveDoubles(CHExistingFilesList []CHGETFile) error {
 
 	CHExistingFilesMap := GenerateMapForExistingCHFiles(CHExistingFilesList)
 
-	var updatedAttachmentGroupList []AttachmentGroup
-
-	for _, attachmentGrp := range attachmentList.AttachmentGroups {
-		var updatedAttachmentGroup AttachmentGroup
-		updatedAttachmentGroup.JiraStoryKey = attachmentGrp.JiraStoryKey
-		updatedAttachmentGroup.JiraProjectKey = attachmentGrp.JiraProjectKey
-		var updatedFileList []CHFile
-		for _, jiraFile := range attachmentGrp.CHFiles {
+	for i, attachmentGrp := range attachmentList.AttachmentGroups {
+		for j, jiraFile := range attachmentGrp.CHFiles {
 			if val, ok := CHExistingFilesMap[jiraFile.ExternalID]; ok {
+				attachmentList.AttachmentGroups[i].CHFiles[j].uploaded = true
 				fmt.Printf("The file with the Jira project key: %v and belonging to the story: %v already exists in Clubhouse with the ID: %v\n", attachmentGrp.JiraProjectKey, attachmentGrp.JiraStoryKey, val)
-			} else {
-				updatedFileList = append(updatedFileList, jiraFile)
 			}
 		}
-		updatedAttachmentGroup.CHFiles = updatedFileList
-		updatedAttachmentGroupList = append(updatedAttachmentGroupList, updatedAttachmentGroup)
 	}
 
-	attachmentList.AttachmentGroups = updatedAttachmentGroupList
+	return nil
 }
 
 // Migrate will dowload from Jira and upload to CH
@@ -276,24 +268,33 @@ func (attachmentList *AttachmentMigrationList) Migrate(projectMaps []ProjectMap,
 
 			var fileIDs []int64
 			for _, jiraFile := range attachmentGrp.CHFiles {
-				file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
+				if !jiraFile.uploaded {
+					file, err := JiraReadFile(jiraFile.ExternalID, jiraFile.Name)
+					if err != nil {
+						return err
+					}
+					clubHouseFile, err := CHCreateFile(file, jiraFile, token)
+					if err != nil {
+						return err
+					}
+					fileIDs = append(fileIDs, clubHouseFile.ID)
+
+					fmt.Printf("File with Jira ID %v successfully migrated to Clubhouse with ID %v\n", clubHouseFile.ExternalID, clubHouseFile.ID)
+				}
+			}
+			if len(fileIDs) > 0 {
+				clubHouseStory, err := CHUpdateStory(clubHouseStorySlim, fileIDs, token)
 				if err != nil {
 					return err
 				}
-				clubHouseFile, err := CHCreateFile(file, jiraFile.Name, jiraFile.ExternalID, token)
-				if err != nil {
-					return err
+
+				var allFiles []int64
+				for _, file := range clubHouseStory.Files {
+					allFiles = append(allFiles, file.ID)
 				}
-				fileIDs = append(fileIDs, clubHouseFile.ID)
-
-				fmt.Printf("File with Jira ID %v successfully migrated to Clubhouse with ID %v\n", clubHouseFile.ExternalID, clubHouseFile.ID)
+				fmt.Printf("Updated Story %v with files %v and now contains following files %v\n", clubHouseStorySlim.ID, fileIDs, allFiles)
 			}
 
-			clubHouseStory, err := CHUpdateStory(clubHouseStorySlim, fileIDs, token)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Updated Story %v with files [%v]\n", clubHouseStorySlim.ID, clubHouseStory.FileIDs)
 		}
 	}
 

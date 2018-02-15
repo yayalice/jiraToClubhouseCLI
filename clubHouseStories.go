@@ -42,7 +42,7 @@ func CHReadStoryList(CHProjectID int64, token string) ([]CHStorySlim, error) {
 }
 
 // CHUpdateStory is a db-operation in CH to update which files should be associated with a given story
-func CHUpdateStory(clubHouseStorySlim CHStorySlim, fileIDs []int64, token string) (CHStory, error) {
+func CHUpdateStory(clubHouseStorySlim CHStorySlim, fileIDs []int64, token string) (CHGETStory, error) {
 
 	client := &http.Client{}
 
@@ -57,17 +57,23 @@ func CHUpdateStory(clubHouseStorySlim CHStorySlim, fileIDs []int64, token string
 
 	var urlType = "stories/" + strconv.FormatInt(clubHouseStorySlim.ID, 10)
 	var chURL = getURL(urlType, token)
-	var jsonString = []byte(`{"file_ids": [` + splitToString(mergedFileIDs, ",") + `]}`)
+	requestBody := CHStoryForUpdate{FileIDs: fileIDs}
+	var jsonString, err = json.Marshal(requestBody)
+	// requestBodyString := string(jsonString)
+	// fmt.Printf("Request body: %v", requestBodyString)
+	if err != nil {
+		return CHGETStory{}, err
+	}
 	b := bytes.NewBuffer(jsonString)
 	req, err := http.NewRequest("PUT", chURL, b)
 	if err != nil {
-		return CHStory{}, err
+		return CHGETStory{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return CHStory{}, err
+		return CHGETStory{}, err
 	}
 	defer res.Body.Close()
 
@@ -78,10 +84,10 @@ func CHUpdateStory(clubHouseStorySlim CHStorySlim, fileIDs []int64, token string
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return CHStory{}, err
+		return CHGETStory{}, err
 	}
 
-	var updatedClubHouseStory CHStory
+	var updatedClubHouseStory CHGETStory
 	json.Unmarshal(body, &updatedClubHouseStory)
 
 	return updatedClubHouseStory, nil

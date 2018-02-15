@@ -38,12 +38,17 @@ func main() {
 					Name:  "out, o",
 					Usage: "The destination file",
 				},
+				cli.StringFlag{
+					Name:  "token, t",
+					Usage: "Your API token",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				jiraFile := c.String("in")
 				exportFile := c.String("out")
 				mapFile := c.String("map")
 				projectMapFile := c.String("project")
+				token := c.String("token")
 
 				if jiraFile == "" {
 					fmt.Println("An input file must be specified.")
@@ -65,7 +70,12 @@ func main() {
 					return nil
 				}
 
-				userMaps, err := GetUserMap(mapFile)
+				if token == "" {
+					fmt.Println("A token must be specified.")
+					return nil
+				}
+
+				userMaps, err := GetUserMap(mapFile, token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -123,7 +133,7 @@ func main() {
 					return nil
 				}
 
-				if token == "" && !testMode {
+				if token == "" {
 					fmt.Println("A token must be specified.")
 					return nil
 				}
@@ -138,7 +148,7 @@ func main() {
 					return nil
 				}
 
-				userMaps, err := GetUserMap(mapFile)
+				userMaps, err := GetUserMap(mapFile, token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -212,7 +222,7 @@ func main() {
 					return nil
 				}
 
-				userMaps, err := GetUserMap(mapFile)
+				userMaps, err := GetUserMap(mapFile, token)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -264,14 +274,17 @@ func SendData(token string, data CHData) error {
 	client := &http.Client{}
 
 	for _, epic := range data.Epics {
+
 		jsonStr, _ := json.Marshal(epic)
 		req, err := http.NewRequest("POST", GetURL("epics", token), bytes.NewBuffer(jsonStr))
 		if err != nil {
+			fmt.Println("error while creating http request for new epic")
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		if err != nil {
+			fmt.Println("error while sending http POST request for new epic")
 			return err
 		}
 		defer resp.Body.Close()
@@ -282,17 +295,22 @@ func SendData(token string, data CHData) error {
 		body, _ := ioutil.ReadAll(resp.Body)
 		newEpic := CHEpic{}
 		json.Unmarshal(body, &newEpic)
-		epicMap[epic.Name] = newEpic.ID
+		epicMap[epic.Name] = newEpic.id
 	}
 
 	for _, story := range data.Stories {
-		if story.EpicLink != "" {
-			story.EpicID = epicMap[story.EpicLink]
+		if story.epicLink != "" {
+			story.EpicID = epicMap[story.epicLink]
+		}
+		if len(story.FileIDs) == 0 {
+			story.FileIDs = make([]int64, 0)
 		}
 		jsonStr, err := json.Marshal(story)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("json object to be sent: %v", string(jsonStr))
+		fmt.Printf("URL to the API: %v", GetURL("stories", token))
 		req, err := http.NewRequest("POST", GetURL("stories", token), bytes.NewBuffer(jsonStr))
 		if err != nil {
 			return err
