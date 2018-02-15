@@ -65,6 +65,7 @@ type CHGETStory struct {
 	Estimate      int64       `json:"estimate"`
 	ExternalID    string      `json:"external_id"`
 	Files         []CHGETFile `json:"files"`
+	ID            int64       `json:"id"`
 	Labels        []CHLabel   `json:"labels"`
 	Name          string      `json:"name"`
 	OwnerIDs      []string    `json:"owner_ids"`

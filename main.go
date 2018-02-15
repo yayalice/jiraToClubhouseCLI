@@ -87,7 +87,7 @@ func main() {
 					return err
 				}
 
-				err = ExportToJSON(jiraFile, userMaps, projectMaps, exportFile)
+				err = ExportToJSON(jiraFile, userMaps, projectMaps, token, exportFile)
 				if err != nil {
 					fmt.Println(err)
 					return err
@@ -253,7 +253,8 @@ func UploadToClubhouse(jiraFile string, userMaps []UserMap, projectMaps []Projec
 	if err != nil {
 		return err
 	}
-	data := export.GetDataForClubhouse(userMaps, projectMaps)
+
+	data := export.GetDataForClubhouse(userMaps, projectMaps, token)
 	fmt.Printf("Found %d epics and %d stories.\n\n", len(data.Epics), len(data.Stories))
 
 	if !testMode {
@@ -309,8 +310,8 @@ func SendData(token string, data CHData) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("json object to be sent: %v", string(jsonStr))
-		fmt.Printf("URL to the API: %v", GetURL("stories", token))
+		// fmt.Printf("json object to be sent: %v", string(jsonStr))
+		// fmt.Printf("URL to the API: %v", GetURL("stories", token))
 		req, err := http.NewRequest("POST", GetURL("stories", token), bytes.NewBuffer(jsonStr))
 		if err != nil {
 			return err
@@ -330,6 +331,12 @@ func SendData(token string, data CHData) error {
 			fmt.Println("response Body:", string(body))
 			fmt.Println("---------")
 		}
+
+		body, _ := ioutil.ReadAll(resp.Body)
+		newStory := CHGETStory{}
+		json.Unmarshal(body, &newStory)
+
+		fmt.Printf("Successfully created Story %v in Clubhouse. Jira key was %v\n", newStory.ID, newStory.ExternalID)
 	}
 	return nil
 }

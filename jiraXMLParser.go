@@ -60,12 +60,12 @@ func GetProjectMap(projectMapFile string) ([]ProjectMap, error) {
 }
 
 // ExportToJSON will import the XML and then export the data to the file specified.
-func ExportToJSON(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap, exportFile string) error {
+func ExportToJSON(jiraFile string, userMaps []UserMap, projectMaps []ProjectMap, token string, exportFile string) error {
 	export, err := GetDataFromXMLFile(jiraFile)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(export.GetDataForClubhouse(userMaps, projectMaps))
+	data, err := json.Marshal(export.GetDataForClubhouse(userMaps, projectMaps, token))
 	if err != nil {
 		return err
 	}

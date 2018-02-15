@@ -10,10 +10,20 @@ import (
 )
 
 //GetDataForClubhouse will take the data from the XML and translate it into a format for sending to Clubhouse
-func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []ProjectMap) CHData {
+func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []ProjectMap, token string) CHData {
 	epics := []JiraItem{}
 	tasks := []JiraItem{}
 	stories := []JiraItem{}
+
+	var existingCHStories []CHStorySlim
+	for _, projectMap := range projectMaps {
+		existingCHStoriesItem, err := CHReadStoryList(projectMap.CHProjectID, token)
+		if err != nil {
+			fmt.Println(err)
+		}
+		existingCHStories = append(existingCHStories, existingCHStoriesItem...)
+	}
+	CHExistingStoriesMap := GenerateMapForExistingCHStories(existingCHStories)
 
 	for _, item := range je.Items {
 		switch item.Type {
@@ -43,7 +53,12 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []Proj
 	}
 
 	for _, item := range stories {
-		chStories = append(chStories, item.CreateStory(userMaps, projectMaps))
+		existingID := CHExistingStoriesMap[item.Key]
+		if existingID == 0 {
+			chStories = append(chStories, item.CreateStory(userMaps, projectMaps))
+		} else {
+			fmt.Printf("Jira story %v is already uploded with the Clubhouse ID %v\n", item.Key, existingID)
+		}
 	}
 
 	// storyMap is used to link the JiraItem's key to its index in the chStories slice. This is then used to assign subtasks properly
@@ -52,8 +67,10 @@ func (je *JiraExport) GetDataForClubhouse(userMaps []UserMap, projectMaps []Proj
 		storyMap[item.ExternalID] = i
 	}
 
-	for _, task := range chTasks {
-		chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
+	if len(storyMap) > 0 {
+		for _, task := range chTasks {
+			chStories[storyMap[task.parent]].Tasks = append(chStories[storyMap[task.parent]].Tasks, task)
+		}
 	}
 
 	return CHData{Epics: chEpics, Stories: chStories}
@@ -225,7 +242,7 @@ func (attachment *JiraAttachment) CreateCHFile(userMaps []UserMap) CHFile {
 	if err != nil {
 		return CHFile{}
 	}
-	fmt.Printf("Jira File information: Author: %v, CreatedAt: %v, ExternalID: %v, Name: %v\n", author, parseJiraTimeStamp(attachment.CreatedAtString), attachment.ID, attachment.Name)
+	// fmt.Printf("Jira File information: Author: %v, CreatedAt: %v, ExternalID: %v, Name: %v\n", author, parseJiraTimeStamp(attachment.CreatedAtString), attachment.ID, attachment.Name)
 	return CHFile{
 		Uploader:   author,
 		CreatedAt:  parseJiraTimeStamp(attachment.CreatedAtString),
