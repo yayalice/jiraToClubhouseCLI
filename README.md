@@ -28,7 +28,7 @@ A JSON file with this structure:
 	{
 		"jiraUsername": "userA",
 		"chID": "476257c9-ac5a-46bc-67d6-4bc8bbfde7be",
-		"default: true
+		"default": true
 	},
 	{
 		"jiraUsername": "userB",
@@ -66,7 +66,7 @@ You'll need to get the right JIRA usernames and JIRA projectkeys and Clubhouse P
 
 ## Workflow Map
 
-Right now you'll have to map workflow states in the script itself (sorry!) in `jiraStructs.go`:
+Right now you'll have to map workflow states in the script itself (sorry!) in `operations.go`:
 
 ```
 switch item.Status {
